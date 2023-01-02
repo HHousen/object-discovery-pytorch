@@ -111,7 +111,7 @@ class SlotAttention(nn.Module):
             slots = self.step(slots, k, v, batch_size, num_inputs)
         # Detach slots from the current graph and compute one more step.
         # This is implicit slot attention from https://cocosci.princeton.edu/papers/chang2022objfixed.pdf
-        # slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
+        slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
         return slots
 
 
