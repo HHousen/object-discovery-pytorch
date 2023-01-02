@@ -4,10 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from slot_attention.utils import Tensor
-from slot_attention.utils import assert_shape
-from slot_attention.utils import build_grid
-from slot_attention.utils import conv_transpose_out_shape
+from slot_attention.utils import assert_shape, build_grid, conv_transpose_out_shape
 
 
 class SlotAttention(nn.Module):
@@ -61,7 +58,41 @@ class SlotAttention(nn.Module):
             ),
         )
 
-    def forward(self, inputs: Tensor):
+    def step(self, slots, k, v, batch_size, num_inputs):
+        slots_prev = slots
+        slots = self.norm_slots(slots)
+
+        # Attention.
+        q = self.project_q(slots)  # Shape: [batch_size, num_slots, slot_size].
+        assert_shape(q.size(), (batch_size, self.num_slots, self.slot_size))
+        attn_norm_factor = self.slot_size**-0.5
+        q *= attn_norm_factor  # Normalization
+        attn_logits = torch.matmul(k, q.transpose(2, 1))
+        attn = F.softmax(attn_logits, dim=-1)
+        # `attn` has shape: [batch_size, num_inputs, num_slots].
+        assert_shape(attn.size(), (batch_size, num_inputs, self.num_slots))
+
+        # Weighted mean.
+        attn += self.epsilon
+        attn /= torch.sum(attn, dim=1, keepdim=True)
+        updates = torch.matmul(attn.transpose(1, 2), v)
+        # `updates` has shape: [batch_size, num_slots, slot_size].
+        assert_shape(updates.size(), (batch_size, self.num_slots, self.slot_size))
+
+        # Slot update.
+        # GRU is expecting inputs of size (N,H) so flatten batch and slots dimension
+        slots = self.gru(
+            updates.view(batch_size * self.num_slots, self.slot_size),
+            slots_prev.view(batch_size * self.num_slots, self.slot_size),
+        )
+        slots = slots.view(batch_size, self.num_slots, self.slot_size)
+        assert_shape(slots.size(), (batch_size, self.num_slots, self.slot_size))
+        slots = slots + self.mlp(self.norm_mlp(slots))
+        assert_shape(slots.size(), (batch_size, self.num_slots, self.slot_size))
+
+        return slots
+
+    def forward(self, inputs: torch.Tensor):
         # `inputs` has shape [batch_size, num_inputs, inputs_size].
         batch_size, num_inputs, inputs_size = inputs.shape
         inputs = self.norm_inputs(inputs)  # Apply layer norm to the input.
@@ -77,37 +108,10 @@ class SlotAttention(nn.Module):
 
         # Multiple rounds of attention.
         for _ in range(self.num_iterations):
-            slots_prev = slots
-            slots = self.norm_slots(slots)
-
-            # Attention.
-            q = self.project_q(slots)  # Shape: [batch_size, num_slots, slot_size].
-            assert_shape(q.size(), (batch_size, self.num_slots, self.slot_size))
-
-            attn_norm_factor = self.slot_size**-0.5
-            attn_logits = attn_norm_factor * torch.matmul(k, q.transpose(2, 1))
-            attn = F.softmax(attn_logits, dim=-1)
-            # `attn` has shape: [batch_size, num_inputs, num_slots].
-            assert_shape(attn.size(), (batch_size, num_inputs, self.num_slots))
-
-            # Weighted mean.
-            attn = attn + self.epsilon
-            attn = attn / torch.sum(attn, dim=1, keepdim=True)
-            updates = torch.matmul(attn.transpose(1, 2), v)
-            # `updates` has shape: [batch_size, num_slots, slot_size].
-            assert_shape(updates.size(), (batch_size, self.num_slots, self.slot_size))
-
-            # Slot update.
-            # GRU is expecting inputs of size (N,H) so flatten batch and slots dimension
-            slots = self.gru(
-                updates.view(batch_size * self.num_slots, self.slot_size),
-                slots_prev.view(batch_size * self.num_slots, self.slot_size),
-            )
-            slots = slots.view(batch_size, self.num_slots, self.slot_size)
-            assert_shape(slots.size(), (batch_size, self.num_slots, self.slot_size))
-            slots = slots + self.mlp(self.norm_mlp(slots))
-            assert_shape(slots.size(), (batch_size, self.num_slots, self.slot_size))
-
+            slots = self.step(slots, k, v, batch_size, num_inputs)
+        # Detach slots from the current graph and compute one more step.
+        # This is implicit slot attention from https://cocosci.princeton.edu/papers/chang2022objfixed.pdf
+        slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
         return slots
 
 
@@ -261,9 +265,11 @@ class SlotAttentionModel(nn.Module):
             out.size(), (batch_size * num_slots, num_channels + 1, height, width)
         )
 
+        # Perform researchers' `unstack_and_split` using `torch.view`.
         out = out.view(batch_size, num_slots, num_channels + 1, height, width)
         recons = out[:, :, :num_channels, :, :]
         masks = out[:, :, -1:, :, :]
+        # Normalize alpha masks over slots.
         masks = F.softmax(masks, dim=1)
         recon_combined = torch.sum(recons * masks, dim=1)
         return recon_combined, recons, masks, slots
@@ -284,7 +290,9 @@ class SoftPositionEmbed(nn.Module):
         self.dense = nn.Linear(in_features=num_channels + 1, out_features=hidden_size)
         self.register_buffer("grid", build_grid(resolution))
 
-    def forward(self, inputs: Tensor):
+    def forward(self, inputs: torch.Tensor):
+        # Permute to move num_channels to 1st dimension. PyTorch layers need
+        # num_channels as 1st dimension, tensorflow needs num_channels last.
         emb_proj = self.dense(self.grid).permute(0, 3, 1, 2)
         assert_shape(inputs.shape[1:], emb_proj.shape[1:])
         return inputs + emb_proj
