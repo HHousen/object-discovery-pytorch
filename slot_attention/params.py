@@ -3,13 +3,13 @@ from typing import Tuple
 
 
 class SlotAttentionParams:
-    lr: float = 0.0004
+    lr: float = 4e-4
     batch_size: int = 16
     val_batch_size: int = 64
     resolution: Tuple[int, int] = (128, 128)
-    num_slots: int = 5
+    num_slots: int = 7
     num_iterations: int = 3
-    data_root: str = "/mnt/data/CLEVR_v1.0/"
+    data_root: str = "/media/Main/Downloads/CLEVR_v1.0"
     accelerator: str = "gpu"
     devices: int = -1
     max_epochs: int = 100

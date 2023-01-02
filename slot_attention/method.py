@@ -5,7 +5,6 @@ from torchvision import utils as vutils
 
 from slot_attention.model import SlotAttentionModel
 from slot_attention.params import SlotAttentionParams
-from slot_attention.utils import Tensor
 from slot_attention.utils import to_rgb_from_tensor
 
 
@@ -21,7 +20,7 @@ class SlotAttentionMethod(pl.LightningModule):
         self.datamodule = datamodule
         self.params = params
 
-    def forward(self, input: Tensor, **kwargs) -> Tensor:
+    def forward(self, input: torch.Tensor, **kwargs) -> torch.Tensor:
         return self.model(input, **kwargs)
 
     def training_step(self, batch, batch_idx):

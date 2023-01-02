@@ -1,14 +1,9 @@
-from typing import Any, Tuple, TypeVar, Union
+from typing import Any, Tuple, Union
 
 import torch
 from pytorch_lightning import Callback
 
 import wandb
-
-Tensor = TypeVar("torch.tensor")
-T = TypeVar("T")
-TK = TypeVar("TK")
-TV = TypeVar("TV")
 
 
 def conv_transpose_out_shape(
@@ -42,7 +37,7 @@ def build_grid(resolution):
     return torch.cat([grid, 1.0 - grid], dim=-1)
 
 
-def rescale(x: Tensor) -> Tensor:
+def rescale(x: torch.Tensor) -> torch.Tensor:
     return x * 2 - 1
 
 
@@ -73,5 +68,12 @@ class ImageLogCallback(Callback):
                 )
 
 
-def to_rgb_from_tensor(x: Tensor):
+def to_rgb_from_tensor(x: torch.Tensor):
     return (x * 0.5 + 0.5).clamp(0, 1)
+
+
+def unstack_and_split(x, batch_size, num_channels=3):
+    """Unstack batch dimension and split into channels and alpha mask."""
+    unstacked = torch.reshape(x, [batch_size, -1] + x.shape.as_list()[1:])
+    channels, masks = torch.split(unstacked, [num_channels, 1], dim=-1)
+    return channels, masks

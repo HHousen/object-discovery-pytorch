@@ -66,7 +66,7 @@ def main(params: Optional[SlotAttentionParams] = None):
         model=model, datamodule=clevr_datamodule, params=params
     )
 
-    logger = pl_loggers.WandbLogger(project="slot-attention-clevr")
+    logger = pl_loggers.WandbLogger(project="slot-attention-clevr6")
 
     trainer = Trainer(
         logger=logger if params.is_logger_enabled else False,
