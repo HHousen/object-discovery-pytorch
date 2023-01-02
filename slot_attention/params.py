@@ -4,7 +4,7 @@ from typing import Tuple
 
 class SlotAttentionParams:
     lr: float = 4e-4
-    batch_size: int = 16
+    batch_size: int = 12
     val_batch_size: int = 64
     resolution: Tuple[int, int] = (128, 128)
     num_slots: int = 7
@@ -13,6 +13,8 @@ class SlotAttentionParams:
     accelerator: str = "gpu"
     devices: int = -1
     max_epochs: int = 100
+    max_steps: int = 500_000*4
+    accumulate_grad_batches: int = 4
     num_sanity_val_steps: int = 1
     scheduler_gamma: float = 0.5
     weight_decay: float = 0.0

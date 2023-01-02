@@ -66,15 +66,15 @@ class SlotAttention(nn.Module):
         q = self.project_q(slots)  # Shape: [batch_size, num_slots, slot_size].
         assert_shape(q.size(), (batch_size, self.num_slots, self.slot_size))
         attn_norm_factor = self.slot_size**-0.5
-        q *= attn_norm_factor  # Normalization
+        q = q * attn_norm_factor  # Normalization
         attn_logits = torch.matmul(k, q.transpose(2, 1))
         attn = F.softmax(attn_logits, dim=-1)
         # `attn` has shape: [batch_size, num_inputs, num_slots].
         assert_shape(attn.size(), (batch_size, num_inputs, self.num_slots))
 
         # Weighted mean.
-        attn += self.epsilon
-        attn /= torch.sum(attn, dim=1, keepdim=True)
+        attn = attn + self.epsilon
+        attn = attn / torch.sum(attn, dim=1, keepdim=True)
         updates = torch.matmul(attn.transpose(1, 2), v)
         # `updates` has shape: [batch_size, num_slots, slot_size].
         assert_shape(updates.size(), (batch_size, self.num_slots, self.slot_size))
@@ -111,7 +111,7 @@ class SlotAttention(nn.Module):
             slots = self.step(slots, k, v, batch_size, num_inputs)
         # Detach slots from the current graph and compute one more step.
         # This is implicit slot attention from https://cocosci.princeton.edu/papers/chang2022objfixed.pdf
-        slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
+        # slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
         return slots
 
 

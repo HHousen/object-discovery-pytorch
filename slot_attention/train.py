@@ -74,6 +74,8 @@ def main(params: Optional[SlotAttentionParams] = None):
         num_sanity_val_steps=params.num_sanity_val_steps,
         devices=params.devices,
         max_epochs=params.max_epochs,
+        max_steps=params.max_steps,
+        accumulate_grad_batches=params.accumulate_grad_batches,
         log_every_n_steps=50,
         callbacks=[
             LearningRateMonitor("step"),
