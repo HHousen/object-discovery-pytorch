@@ -1,4 +1,4 @@
-# Slot Attention
+# Slot Attention PyTorch
 
 This is a re-implementation of "Object-Centric Learning with Slot Attention" in PyTorch (https://arxiv.org/abs/2006.15055).
 

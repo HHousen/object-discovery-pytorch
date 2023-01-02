@@ -10,7 +10,12 @@ from slot_attention.utils import to_rgb_from_tensor
 
 
 class SlotAttentionMethod(pl.LightningModule):
-    def __init__(self, model: SlotAttentionModel, datamodule: pl.LightningDataModule, params: SlotAttentionParams):
+    def __init__(
+        self,
+        model: SlotAttentionModel,
+        datamodule: pl.LightningDataModule,
+        params: SlotAttentionParams,
+    ):
         super().__init__()
         self.model = model
         self.datamodule = datamodule
@@ -19,7 +24,7 @@ class SlotAttentionMethod(pl.LightningModule):
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         return self.model(input, **kwargs)
 
-    def training_step(self, batch, batch_idx, optimizer_idx=0):
+    def training_step(self, batch, batch_idx):
         train_loss = self.model.loss_function(batch)
         logs = {key: val.item() for key, val in train_loss.items()}
         self.log_dict(logs, sync_dist=True)
@@ -30,7 +35,7 @@ class SlotAttentionMethod(pl.LightningModule):
         perm = torch.randperm(self.params.batch_size)
         idx = perm[: self.params.n_samples]
         batch = next(iter(dl))[idx]
-        if self.params.gpus > 0:
+        if self.params.accelerator:
             batch = batch.to(self.device)
         recon_combined, recons, masks, slots = self.model.forward(batch)
 
@@ -48,12 +53,14 @@ class SlotAttentionMethod(pl.LightningModule):
 
         batch_size, num_slots, C, H, W = recons.shape
         images = vutils.make_grid(
-            out.view(batch_size * out.shape[1], C, H, W).cpu(), normalize=False, nrow=out.shape[1],
+            out.view(batch_size * out.shape[1], C, H, W).cpu(),
+            normalize=False,
+            nrow=out.shape[1],
         )
 
         return images
 
-    def validation_step(self, batch, batch_idx, optimizer_idx=0):
+    def validation_step(self, batch, batch_idx):
         val_loss = self.model.loss_function(batch)
         return val_loss
 
@@ -63,10 +70,13 @@ class SlotAttentionMethod(pl.LightningModule):
             "avg_val_loss": avg_loss,
         }
         self.log_dict(logs, sync_dist=True)
-        print("; ".join([f"{k}: {v.item():.6f}" for k, v in logs.items()]))
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.model.parameters(), lr=self.params.lr, weight_decay=self.params.weight_decay)
+        optimizer = optim.Adam(
+            self.model.parameters(),
+            lr=self.params.lr,
+            weight_decay=self.params.weight_decay,
+        )
 
         warmup_steps_pct = self.params.warmup_steps_pct
         decay_steps_pct = self.params.decay_steps_pct
@@ -83,9 +93,16 @@ class SlotAttentionMethod(pl.LightningModule):
             factor *= self.params.scheduler_gamma ** (step / decay_steps)
             return factor
 
-        scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=warm_and_decay_lr_scheduler)
+        scheduler = optim.lr_scheduler.LambdaLR(
+            optimizer=optimizer, lr_lambda=warm_and_decay_lr_scheduler
+        )
 
         return (
             [optimizer],
-            [{"scheduler": scheduler, "interval": "step",}],
+            [
+                {
+                    "scheduler": scheduler,
+                    "interval": "step",
+                }
+            ],
         )

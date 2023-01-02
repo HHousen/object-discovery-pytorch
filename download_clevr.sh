@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
-set -x
 
-DATA_DIR=/tmp/data
+DATA_DIR=$1
 
 if [ ! -d $DATA_DIR ]; then
     mkdir $DATA_DIR
@@ -20,8 +19,4 @@ fi
 echo "unzipping CLEVR_v1 to $DATA_DIR/CLEVR_v1.0"
 rm -rf CLEVR_v1.0
 unzip -q CLEVR_v1.0.zip
-
-
-
-
-
+rm CLEVR_v1.0.zip

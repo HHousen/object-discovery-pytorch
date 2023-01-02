@@ -5,6 +5,6 @@ set -x
 poetry install
 
 chmod +x download_clevr.sh
-./download_clevr.sh
+./download_clevr.sh /tmp/CLEVR
 
-python slot_attention/train.py
+python -m slot_attention.train
