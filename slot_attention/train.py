@@ -23,18 +23,6 @@ def main(params: Optional[TrainingParams] = None):
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
-    print(
-        f"INFO: limiting the dataset to only images with `num_slots - 1` ({params.num_slots - 1}) objects."
-    )
-    if params.num_train_images:
-        print(
-            f"INFO: restricting the train dataset size to `num_train_images`: {params.num_train_images}"
-        )
-    if params.num_val_images:
-        print(
-            f"INFO: restricting the validation dataset size to `num_val_images`: {params.num_val_images}"
-        )
-
     clevr_transforms = transforms.Compose(
         [
             transforms.ToTensor(),

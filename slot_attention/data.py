@@ -85,6 +85,18 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.num_train_images = num_train_images
         self.num_val_images = num_val_images
 
+        print(
+            f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
+        )
+        if num_train_images:
+            print(
+                f"INFO: restricting the train dataset size to `num_train_images`: {num_train_images}"
+            )
+        if num_val_images:
+            print(
+                f"INFO: restricting the validation dataset size to `num_val_images`: {num_val_images}"
+            )
+
         self.train_dataset = CLEVRDataset(
             data_root=self.data_root,
             max_num_images=self.num_train_images,
