@@ -35,14 +35,14 @@ class SlotAttentionMethod(pl.LightningModule):
 
     def step(self, batch):
         if self.params.model_type == "slate":
-            tau = cosine_anneal(
+            self.tau = cosine_anneal(
                 self.trainer.global_step,
                 self.params.tau_start,
                 self.params.tau_final,
                 0,
                 self.params.tau_steps,
             )
-            loss = self.model.loss_function(batch, tau, self.params.hard)
+            loss = self.model.loss_function(batch, self.tau, self.params.hard)
         elif self.params.model_type == "sa":
             loss = self.model.loss_function(batch)
 
@@ -54,8 +54,12 @@ class SlotAttentionMethod(pl.LightningModule):
         self.log_dict(logs, sync_dist=True)
         return loss_dict["loss"]
 
-    def sample_images(self):
-        dl = self.datamodule.val_dataloader()
+    def sample_images(self, stage="validation"):
+        dl = (
+            self.datamodule.val_dataloader()
+            if stage == "validation"
+            else self.datamodule.train_dataloader()
+        )
         perm = torch.randperm(self.params.batch_size)
         idx = perm[: self.params.n_samples]
         batch = next(iter(dl))[idx]
@@ -83,8 +87,7 @@ class SlotAttentionMethod(pl.LightningModule):
                 nrow=out.shape[1],
             )
         elif self.params.model_type == "slate":
-            tau = 1
-            recon, _, _, attns = self.model(batch, tau, True)
+            recon, _, _, attns = self.model(batch, self.tau, True)
             gen_img = self.model.reconstruct_autoregressive(batch)
             vis_recon = visualize(batch, recon, gen_img, attns, N=32)
             images = vutils.make_grid(
@@ -181,6 +184,17 @@ class SlotAttentionMethod(pl.LightningModule):
         scheduler = optim.lr_scheduler.LambdaLR(
             optimizer=optimizer, lr_lambda=lr_lambda
         )
+
+        if self.params.model_type == "slate" and hasattr(self.params, "patience"):
+            reduce_on_plateau = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer=optimizer,
+                mode="min",
+                factor=0.5,
+                patience=self.params.patience,
+            )
+            scheduler = optim.lr_scheduler.ChainedScheduler(
+                [scheduler, reduce_on_plateau]
+            )
 
         return (
             [optimizer],
