@@ -49,10 +49,10 @@ class SlotAttentionMethod(pl.LightningModule):
         return loss
 
     def training_step(self, batch, batch_idx):
-        loss = self.step(batch)
-        logs = {"train/" + key: val.item() for key, val in loss.items()}
+        loss_dict = self.step(batch)
+        logs = {"train/" + key: val.item() for key, val in loss_dict.items()}
         self.log_dict(logs, sync_dist=True)
-        return logs["train/loss"]
+        return loss_dict["loss"]
 
     def sample_images(self):
         dl = self.datamodule.val_dataloader()
