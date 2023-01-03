@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from slot_attention.utils import linear
 from slot_attention.transformer import PositionalEncoding, TransformerDecoder
-from slot_attention.slot_attention_model import SlotAttention
+
+# from slot_attention.slot_attention_model import SlotAttention
+from slot_attention.slot_attn import SlotAttention
 
 
 def conv2d(
@@ -153,7 +155,12 @@ class SLATE(nn.Module):
         )
 
         self.slot_attn = SlotAttention(
-            d_model, num_iterations, num_slots, slot_size, mlp_hidden_size
+            d_model,
+            num_iterations,
+            num_slots,
+            slot_size,
+            mlp_hidden_size,
+            do_input_mlp=True,
         )
 
         self.dictionary = OneHotDictionary(vocab_size + 1, d_model)
@@ -229,7 +236,12 @@ class SLATE(nn.Module):
 
     def loss_function(self, input, tau, hard=False):
         _, cross_entropy, mse, _ = self.forward(input, tau, hard)
-        return {"loss": cross_entropy + mse}
+        return {
+            "loss": cross_entropy + mse,
+            "cross_entropy": cross_entropy,
+            "mse": mse,
+            "tau": torch.tensor(tau),
+        }
 
     def reconstruct_autoregressive(self, image, eval=False):
         """
