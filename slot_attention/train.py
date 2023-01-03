@@ -5,7 +5,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from torchvision import transforms
 
-from slot_attention.data import CLEVRDataModule
+from slot_attention.data import CLEVRDataModule, Shapes3dDataModule
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
@@ -53,6 +53,12 @@ def main(params: Optional[TrainingParams] = None):
         num_val_images=params.num_val_images,
         num_workers=params.num_workers,
     )
+    # clevr_datamodule = Shapes3dDataModule(
+    #     data_root=params.data_root,
+    #     train_batch_size=params.batch_size,
+    #     val_batch_size=params.val_batch_size,
+    #     num_workers=params.num_workers,
+    # )
 
     print(
         f"Training set size (images must have {params.num_slots - 1} objects):",

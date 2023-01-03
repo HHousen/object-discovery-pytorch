@@ -120,6 +120,8 @@ class CLEVRDataModule(pl.LightningDataModule):
         )
 
 class Shapes3D(Dataset):
+    # From https://github.com/singhgautam/slate/blob/6afe75211a79ef7327071ce198f4427928418bf5/shapes_3d.py
+    # Download from https://console.cloud.google.com/storage/browser/3d-shapes (https://storage.googleapis.com/3d-shapes/3dshapes.h5)
     def __init__(self, root, phase):
         assert phase in ['train', 'val', 'test']
         with h5py.File(root, 'r') as f:

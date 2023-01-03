@@ -122,6 +122,17 @@ python-versions = ">=3.4"
 gitdb = ">=4.0.1,<5"
 
 [[package]]
+name = "h5py"
+version = "3.7.0"
+description = "Read and write HDF5 files from Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+numpy = ">=1.14.5"
+
+[[package]]
 name = "idna"
 version = "2.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -552,7 +563,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "1d44e138f819de17a83443e084f008c532cf4a222a9e8bc7a7da66759f9409a2"
+content-hash = "f7ae4030dbe90f4f7f4b012438c36a001f59c0d3bf34707591bf50b9da3f5cba"
 
 [metadata.files]
 aiohttp = []
@@ -565,6 +576,7 @@ docker-pycreds = []
 fsspec = []
 gitdb = []
 gitpython = []
+h5py = []
 idna = []
 idna-ssl = []
 lightning-utilities = []
