@@ -44,14 +44,15 @@ class SLATEParams(TrainingParams):
     weight_decay: float = 0.0
     batch_size: int = 12
     val_batch_size: int = 12
+    accumulate_grad_batches: int = 3
     max_epochs: int = 1000
     # patience: int = 4  # not implemented
     gradient_clip_val: float = 1.0
     resolution: Tuple[int, int] = (128, 128)
-    num_dec_blocks: int = 8
+    num_dec_blocks: int = 6
     vocab_size: int = 4096
     d_model: int = 192
-    num_heads: int = 8
+    num_heads: int = 6
     dropout: float = 0.1
     slot_size: int = 192
     mlp_hidden_size: int = 192
