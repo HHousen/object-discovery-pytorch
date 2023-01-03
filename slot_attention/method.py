@@ -45,12 +45,12 @@ class SlotAttentionMethod(pl.LightningModule):
             loss = self.model.loss_function(batch, tau, self.params.hard)
         elif self.params.model_type == "sa":
             loss = self.model.loss_function(batch)
-        
+
         return loss
 
     def training_step(self, batch, batch_idx):
         loss = self.step(batch)
-        logs = {"train/"+key: val.item() for key, val in loss.items()}
+        logs = {"train/" + key: val.item() for key, val in loss.items()}
         self.log_dict(logs, sync_dist=True)
         return logs["train/loss"]
 
@@ -98,7 +98,10 @@ class SlotAttentionMethod(pl.LightningModule):
         return loss
 
     def validation_epoch_end(self, outputs):
-        logs = {"validation/"+key: torch.stack([x[key] for x in outputs]).mean() for key in outputs[0].keys()}
+        logs = {
+            "validation/" + key: torch.stack([x[key] for x in outputs]).mean()
+            for key in outputs[0].keys()
+        }
         self.log_dict(logs, sync_dist=True)
 
     def num_training_steps(self) -> int:
