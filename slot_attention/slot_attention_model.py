@@ -71,6 +71,7 @@ class SlotAttention(nn.Module):
         attn = F.softmax(attn_logits, dim=-1)
         # `attn` has shape: [batch_size, num_inputs, num_slots].
         assert_shape(attn.size(), (batch_size, num_inputs, self.num_slots))
+        attn_vis = attn
 
         # Weighted mean.
         attn = attn + self.epsilon
@@ -90,7 +91,7 @@ class SlotAttention(nn.Module):
         slots = slots + self.mlp(self.norm_mlp(slots))
         assert_shape(slots.size(), (batch_size, self.num_slots, self.slot_size))
 
-        return slots
+        return slots, attn_vis
 
     def forward(self, inputs: torch.Tensor):
         # `inputs` has shape [batch_size, num_inputs, inputs_size].
@@ -108,11 +109,11 @@ class SlotAttention(nn.Module):
 
         # Multiple rounds of attention.
         for _ in range(self.num_iterations):
-            slots = self.step(slots, k, v, batch_size, num_inputs)
+            slots, attn_vis = self.step(slots, k, v, batch_size, num_inputs)
         # Detach slots from the current graph and compute one more step.
         # This is implicit slot attention from https://cocosci.princeton.edu/papers/chang2022objfixed.pdf
-        slots = self.step(slots.detach(), k, v, batch_size, num_inputs)
-        return slots
+        slots, attn_vis = self.step(slots.detach(), k, v, batch_size, num_inputs)
+        return slots, attn_vis
 
 
 class SlotAttentionModel(nn.Module):
@@ -124,9 +125,9 @@ class SlotAttentionModel(nn.Module):
         in_channels: int = 3,
         kernel_size: int = 5,
         slot_size: int = 64,
+        mlp_hidden_size: int = 128,
         hidden_dims: Tuple[int, ...] = (64, 64, 64, 64),
         decoder_resolution: Tuple[int, int] = (8, 8),
-        empty_cache=False,
     ):
         super().__init__()
         self.resolution = resolution
@@ -135,7 +136,7 @@ class SlotAttentionModel(nn.Module):
         self.in_channels = in_channels
         self.kernel_size = kernel_size
         self.slot_size = slot_size
-        self.empty_cache = empty_cache
+        self.mlp_hidden_size = mlp_hidden_size
         self.hidden_dims = hidden_dims
         self.decoder_resolution = decoder_resolution
         self.out_features = self.hidden_dims[-1]
@@ -231,13 +232,10 @@ class SlotAttentionModel(nn.Module):
             num_iterations=self.num_iterations,
             num_slots=self.num_slots,
             slot_size=self.slot_size,
-            mlp_hidden_size=128,
+            mlp_hidden_size=self.mlp_hidden_size,
         )
 
     def forward(self, x):
-        if self.empty_cache:
-            torch.cuda.empty_cache()
-
         batch_size, num_channels, height, width = x.shape
         encoder_out = self.encoder(x)
         encoder_out = self.encoder_pos_embedding(encoder_out)
@@ -274,7 +272,7 @@ class SlotAttentionModel(nn.Module):
         recon_combined = torch.sum(recons * masks, dim=1)
         return recon_combined, recons, masks, slots
 
-    def loss_function(self, input):
+    def loss_function(self, input, global_step=None):
         recon_combined, recons, masks, slots = self.forward(input)
         loss = F.mse_loss(recon_combined, input)
         return {

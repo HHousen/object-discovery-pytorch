@@ -7,29 +7,33 @@ from torchvision import transforms
 
 from slot_attention.data import CLEVRDataModule
 from slot_attention.method import SlotAttentionMethod
-from slot_attention.model import SlotAttentionModel
-from slot_attention.params import SlotAttentionParams
+from slot_attention.slot_attention_model import SlotAttentionModel
+from slot_attention.slate_model import SLATE
+from slot_attention.params import TrainingParams, SlotAttentionParams, SLATEParams
 from slot_attention.utils import ImageLogCallback, rescale
 
 
-def main(params: Optional[SlotAttentionParams] = None):
+def main(params: Optional[TrainingParams] = None):
     if params is None:
-        params = SlotAttentionParams()
+        params = TrainingParams()
+        if params.model_type == "slate":
+            params = SLATEParams()
+        elif params.model_type == "sa":
+            params = SlotAttentionParams()
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
-    if params.is_verbose:
+    print(
+        f"INFO: limiting the dataset to only images with `num_slots - 1` ({params.num_slots - 1}) objects."
+    )
+    if params.num_train_images:
         print(
-            f"INFO: limiting the dataset to only images with `num_slots - 1` ({params.num_slots - 1}) objects."
+            f"INFO: restricting the train dataset size to `num_train_images`: {params.num_train_images}"
         )
-        if params.num_train_images:
-            print(
-                f"INFO: restricting the train dataset size to `num_train_images`: {params.num_train_images}"
-            )
-        if params.num_val_images:
-            print(
-                f"INFO: restricting the validation dataset size to `num_val_images`: {params.num_val_images}"
-            )
+    if params.num_val_images:
+        print(
+            f"INFO: restricting the validation dataset size to `num_val_images`: {params.num_val_images}"
+        )
 
     clevr_transforms = transforms.Compose(
         [
@@ -55,12 +59,26 @@ def main(params: Optional[SlotAttentionParams] = None):
         len(clevr_datamodule.train_dataset),
     )
 
-    model = SlotAttentionModel(
-        resolution=params.resolution,
-        num_slots=params.num_slots,
-        num_iterations=params.num_iterations,
-        empty_cache=params.empty_cache,
-    )
+    if params.model_type == "sa":
+        model = SlotAttentionModel(
+            resolution=params.resolution,
+            num_slots=params.num_slots,
+            num_iterations=params.num_iterations,
+            slot_size=params.slot_size,
+        )
+    elif params.model_type == "slate":
+        model = SLATE(
+            num_slots=params.num_slots,
+            vocab_size=params.vocab_size,
+            d_model=params.d_model,
+            resolution=params.resolution,
+            num_iterations=params.num_iterations,
+            slot_size=params.slot_size,
+            mlp_hidden_size=params.mlp_hidden_size,
+            num_heads=params.num_heads,
+            dropout=params.dropout,
+            num_dec_blocks=params.num_dec_blocks,
+        )
 
     method = SlotAttentionMethod(
         model=model, datamodule=clevr_datamodule, params=params
@@ -76,6 +94,7 @@ def main(params: Optional[SlotAttentionParams] = None):
         max_epochs=params.max_epochs,
         max_steps=params.max_steps,
         accumulate_grad_batches=params.accumulate_grad_batches,
+        gradient_clip_val=params.gradient_clip_val,
         log_every_n_steps=50,
         callbacks=[
             LearningRateMonitor("step"),
