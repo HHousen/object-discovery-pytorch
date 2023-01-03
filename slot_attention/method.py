@@ -33,7 +33,7 @@ class SlotAttentionMethod(pl.LightningModule):
     def forward(self, input: torch.Tensor, **kwargs) -> torch.Tensor:
         return self.model(input, **kwargs)
 
-    def training_step(self, batch, batch_idx):
+    def step(self, batch):
         if self.params.model_type == "slate":
             tau = cosine_anneal(
                 self.trainer.global_step,
@@ -42,13 +42,17 @@ class SlotAttentionMethod(pl.LightningModule):
                 0,
                 self.params.tau_steps,
             )
-            train_loss = self.model.loss_function(batch, tau, self.params.hard)
+            loss = self.model.loss_function(batch, tau, self.params.hard)
         elif self.params.model_type == "sa":
-            train_loss = self.model.loss_function(batch)
+            loss = self.model.loss_function(batch)
+        
+        return loss
 
-        logs = {key: val.item() for key, val in train_loss.items()}
+    def training_step(self, batch, batch_idx):
+        loss = self.step(batch)
+        logs = {"train/"+key: val.item() for key, val in loss.items()}
         self.log_dict(logs, sync_dist=True)
-        return train_loss
+        return logs["train/loss"]
 
     def sample_images(self):
         dl = self.datamodule.val_dataloader()
@@ -90,13 +94,11 @@ class SlotAttentionMethod(pl.LightningModule):
         return images
 
     def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        loss = self.step(batch)
+        return loss
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
-        logs = {
-            "avg_val_loss": avg_loss,
-        }
+        logs = {"validation/"+key: torch.stack([x[key] for x in outputs]).mean() for key in outputs[0].keys()}
         self.log_dict(logs, sync_dist=True)
 
     def num_training_steps(self) -> int:
@@ -170,7 +172,7 @@ class SlotAttentionMethod(pl.LightningModule):
             )
 
         if self.params.model_type == "slate":
-            lr_lambda = [lambda o: o, scheduler_lambda]
+            lr_lambda = [lambda o: 1, scheduler_lambda]
         elif self.params.model_type == "sa":
             lr_lambda = scheduler_lambda
         scheduler = optim.lr_scheduler.LambdaLR(
