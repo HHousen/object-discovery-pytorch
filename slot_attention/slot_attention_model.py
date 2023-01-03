@@ -93,7 +93,7 @@ class SlotAttention(nn.Module):
 
         return slots, attn_vis
 
-    def forward(self, inputs: torch.Tensor):
+    def forward(self, inputs: torch.Tensor, return_attns=False):
         # `inputs` has shape [batch_size, num_inputs, inputs_size].
         batch_size, num_inputs, inputs_size = inputs.shape
         inputs = self.norm_inputs(inputs)  # Apply layer norm to the input.
@@ -113,7 +113,10 @@ class SlotAttention(nn.Module):
         # Detach slots from the current graph and compute one more step.
         # This is implicit slot attention from https://cocosci.princeton.edu/papers/chang2022objfixed.pdf
         slots, attn_vis = self.step(slots.detach(), k, v, batch_size, num_inputs)
-        return slots, attn_vis
+        if return_attns:
+            return slots, attn_vis
+        else:
+            return slots
 
 
 class SlotAttentionModel(nn.Module):

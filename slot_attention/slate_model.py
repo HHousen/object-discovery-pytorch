@@ -205,7 +205,7 @@ class SLATE(nn.Module):
         emb_input = self.positional_encoder(emb_input)
 
         # apply slot attention
-        slots, attns = self.slot_attn(emb_input[:, 1:])
+        slots, attns = self.slot_attn(emb_input[:, 1:], return_attns=True)
         attns = attns.transpose(-1, -2)
         attns = (
             attns.reshape(B, self.num_slots, 1, H_enc, W_enc)
@@ -265,7 +265,7 @@ class SLATE(nn.Module):
         emb_input = self.positional_encoder(emb_input)
 
         # slot attention
-        slots, attns = self.slot_attn(emb_input[:, 1:])
+        slots, attns = self.slot_attn(emb_input[:, 1:], return_attns=True)
         attns = attns.transpose(-1, -2)
         attns = (
             attns.reshape(B, self.num_slots, 1, H_enc, W_enc)
