@@ -2,12 +2,14 @@ import json
 import os
 from typing import Callable, List, Optional
 
+import torch
+import h5py
 import pytorch_lightning as pl
 from PIL import Image
-from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
 from slot_attention.utils import compact
+from slot_attention.shapes_3d import Shapes3D
 
 
 class CLEVRDataset(Dataset):
@@ -97,6 +99,70 @@ class CLEVRDataModule(pl.LightningDataModule):
             clevr_transforms=self.clevr_transforms,
             split="val",
             max_n_objects=self.max_n_objects,
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+class Shapes3D(Dataset):
+    def __init__(self, root, phase):
+        assert phase in ['train', 'val', 'test']
+        with h5py.File(root, 'r') as f:
+            if phase == 'train':
+                self.imgs = f['images'][:400000]
+            elif phase == 'val':
+                self.imgs = f['images'][400001:430000]
+            elif phase == 'test':
+                self.imgs = f['images'][430001:460000]
+            else:
+                raise NotImplementedError
+
+    def __getitem__(self, index):
+        img = self.imgs[index]
+        img = torch.from_numpy(img).permute(2, 0, 1)
+        img = img.float() / 255.
+
+        return img
+
+    def __len__(self):
+        return len(self.imgs)
+
+class Shapes3dDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        data_root: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        num_workers: int,
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.num_workers = num_workers
+
+        self.train_dataset = Shapes3D(
+            root=self.data_root,
+            phase="train",
+        )
+        self.val_dataset = Shapes3D(
+            root=self.data_root,
+            phase="val",
         )
 
     def train_dataloader(self):
