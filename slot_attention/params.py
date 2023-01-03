@@ -18,7 +18,7 @@ class TrainingParams(Namespace):
     num_workers: int = 4
     is_logger_enabled: bool = True
     gradient_clip_val: int = 0.0
-    n_samples: int = 5
+    n_samples: int = 16
 
 
 class SlotAttentionParams(TrainingParams):
@@ -47,7 +47,7 @@ class SLATEParams(TrainingParams):
     max_epochs: int = 1000
     # patience: int = 4  # not implemented
     gradient_clip_val: float = 1.0
-    resolution: Tuple[int, int] = (128, 128)
+    resolution: Tuple[int, int] = (64, 64)#(128, 128)
     num_dec_blocks: int = 4
     vocab_size: int = 1024
     d_model: int = 192
