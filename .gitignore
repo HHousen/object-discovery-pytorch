@@ -136,3 +136,4 @@ dmypy.json
 wandb/
 slot-attention-clevr/
 .vscode/
+data/
