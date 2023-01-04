@@ -1,3 +1,4 @@
+from argparse import Namespace
 from typing import Union
 from functools import partial
 import pytorch_lightning as pl
@@ -7,7 +8,6 @@ from torchvision import utils as vutils
 
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
-from slot_attention.params import TrainingParams
 from slot_attention.utils import (
     to_rgb_from_tensor,
     warm_and_decay_lr_scheduler,
@@ -22,7 +22,7 @@ class SlotAttentionMethod(pl.LightningModule):
         self,
         model: Union[SlotAttentionModel, SLATE],
         datamodule: pl.LightningDataModule,
-        params: TrainingParams,
+        params: Namespace,
     ):
         super().__init__()
         self.model = model

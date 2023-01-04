@@ -9,17 +9,17 @@ from slot_attention.data import CLEVRDataModule, Shapes3dDataModule
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
-from slot_attention.params import TrainingParams, SlotAttentionParams, SLATEParams
+from slot_attention.params import merge_namespaces, training_params, slot_attention_params, slate_params
 from slot_attention.utils import ImageLogCallback, rescale
 
 
-def main(params: Optional[TrainingParams] = None):
+def main(params = None):
     if params is None:
-        params = TrainingParams()
+        params = training_params
         if params.model_type == "slate":
-            params = SLATEParams()
+            params = merge_namespaces(params, slate_params)
         elif params.model_type == "sa":
-            params = SlotAttentionParams()
+            params = merge_namespaces(params, slot_attention_params)
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
