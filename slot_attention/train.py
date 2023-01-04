@@ -10,7 +10,7 @@ from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
 from slot_attention.params import merge_namespaces, training_params, slot_attention_params, slate_params
-from slot_attention.utils import ImageLogCallback, rescale
+from slot_attention.utils import ImageLogCallback, rescale, center_crop
 
 
 def main(params = None):
@@ -27,6 +27,7 @@ def main(params = None):
         [
             transforms.ToTensor(),
             transforms.Lambda(rescale),  # rescale between -1 and 1
+            transforms.Lambda(center_crop),
             transforms.Resize(params.resolution),
         ]
     )
