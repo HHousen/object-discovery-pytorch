@@ -147,13 +147,13 @@ class CLEVRDataModule(pl.LightningDataModule):
             # [1]: https://github.com/deepmind/deepmind-research/blob/11c2ab53e8afd24afa8904f22fd81b699bfbce6e/iodine/modules/data.py#L191
             # In original tfrecords format, CLEVR (with masks) image shape is
             # (height, width, channels) = (240, 320, 3).
-            clevr_transforms = transforms.Compose(
+            self.clevr_transforms = transforms.Compose(
                 [
                     # image has shape (H x W x C)
                     transforms.ToTensor(),  # rescales to range [0.0, 1.0]
                     # image has shape (C x H x W)
                     transforms.Lambda(rescale),  # rescale between -1 and 1
-                    transforms.CenterCrop(slightly_off_center_crop),
+                    transforms.Lambda(slightly_off_center_crop),
                     transforms.Resize(self.resolution),
                 ]
             )
