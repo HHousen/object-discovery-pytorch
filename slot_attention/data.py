@@ -1,14 +1,15 @@
 import json
 import os
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import torch
 import h5py
 import pytorch_lightning as pl
+from torchvision import transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from slot_attention.utils import compact
+from slot_attention.utils import compact, rescale
 
 
 class CLEVRDataset(Dataset):
@@ -69,9 +70,10 @@ class CLEVRDataModule(pl.LightningDataModule):
         data_root: str,
         train_batch_size: int,
         val_batch_size: int,
-        clevr_transforms: Callable,
         max_n_objects: int,
         num_workers: int,
+        resolution: Tuple[int, int],
+        clevr_transforms: Optional[Callable] = None,
         num_train_images: Optional[int] = None,
         num_val_images: Optional[int] = None,
     ):
@@ -82,6 +84,7 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.clevr_transforms = clevr_transforms
         self.max_n_objects = max_n_objects
         self.num_workers = num_workers
+        self.resolution = resolution
         self.num_train_images = num_train_images
         self.num_val_images = num_val_images
 
@@ -95,6 +98,21 @@ class CLEVRDataModule(pl.LightningDataModule):
         if num_val_images:
             print(
                 f"INFO: restricting the validation dataset size to `num_val_images`: {num_val_images}"
+            )
+
+        if not self.clevr_transforms:
+            # Same transforms as in IODINE (unofficial implementation: https://github.com/zhixuan-lin/IODINE/blob/master/lib/data/clevr.py)
+            # Official Slot Attention implementation center crops assuming a height of
+            # 250, but actual height is 240. https://github.com/google-research/google-research/blob/master/slot_attention/data.py#L28
+            # In original tfrecords format, CLEVR (with masks) image shape is
+            # (height, width, channels) = (240, 320, 3).
+            clevr_transforms = transforms.Compose(
+                [
+                    transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                    transforms.Lambda(rescale),  # rescale between -1 and 1
+                    transforms.CenterCrop(192),
+                    transforms.Resize(self.resolution),
+                ]
             )
 
         self.train_dataset = CLEVRDataset(

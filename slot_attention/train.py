@@ -1,16 +1,13 @@
-from typing import Optional
-
 import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
-from torchvision import transforms
 
 from slot_attention.data import CLEVRDataModule, Shapes3dDataModule
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
 from slot_attention.params import merge_namespaces, training_params, slot_attention_params, slate_params
-from slot_attention.utils import ImageLogCallback, rescale, center_crop
+from slot_attention.utils import ImageLogCallback
 
 
 def main(params = None):
@@ -23,24 +20,15 @@ def main(params = None):
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
-    clevr_transforms = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Lambda(rescale),  # rescale between -1 and 1
-            transforms.Lambda(center_crop),
-            transforms.Resize(params.resolution),
-        ]
-    )
-
     clevr_datamodule = CLEVRDataModule(
         data_root=params.data_root,
         max_n_objects=params.num_slots - 1,
         train_batch_size=params.batch_size,
         val_batch_size=params.val_batch_size,
-        clevr_transforms=clevr_transforms,
         num_train_images=params.num_train_images,
         num_val_images=params.num_val_images,
         num_workers=params.num_workers,
+        resolution=params.resolution,
     )
     # clevr_datamodule = Shapes3dDataModule(
     #     data_root=params.data_root,
