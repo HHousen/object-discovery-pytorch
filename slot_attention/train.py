@@ -30,8 +30,6 @@ def main(params=None):
         max_n_objects=params.num_slots - 1,
         train_batch_size=params.batch_size,
         val_batch_size=params.val_batch_size,
-        num_train_images=params.num_train_images,
-        num_val_images=params.num_val_images,
         num_workers=params.num_workers,
         resolution=params.resolution,
     )

@@ -4,6 +4,7 @@ from typing import Callable, List, Optional, Tuple
 
 import torch
 import h5py
+import numpy as np
 import pytorch_lightning as pl
 from torchvision import transforms
 from PIL import Image
@@ -64,6 +65,53 @@ class CLEVRDataset(Dataset):
         return sorted(compact(paths))
 
 
+class CLEVRWithMasksDataset(Dataset):
+    def __init__(
+        self,
+        data_root: str,
+        clevr_transforms: Callable,
+        max_n_objects: int = 10,
+        split: str = "train",
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.clevr_transforms = clevr_transforms
+        self.max_n_objects = max_n_objects
+        self.split = split
+        assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
+        assert self.split == "train" or self.split == "val" or self.split == "test"
+
+        self.data = h5py.File(self.data_root, "r")
+        if self.max_n_objects:
+            if self.split == "train":
+                num_objects_in_scene = np.sum(self.data["visibility"][:70_000], axis=1)
+            elif self.split == "val":
+                num_objects_in_scene = np.sum(
+                    self.data["visibility"][70_001:85_000], axis=1
+                )
+            elif self.split == "test":
+                num_objects_in_scene = np.sum(
+                    self.data["visibility"][85_001:100_000], axis=1
+                )
+            else:
+                raise NotImplementedError
+            self.indices = (
+                np.argwhere(num_objects_in_scene <= self.max_n_objects).flatten()
+                + {"train": 0, "val": 70_001, "test": 85_001}[self.split]
+            )
+
+    def __getitem__(self, index: int):
+        if self.max_n_objects:
+            index_to_load = self.indices[index]
+        else:
+            index_to_load = index
+        img = self.data["image"][index_to_load]
+        return self.clevr_transforms(img)
+
+    def __len__(self):
+        return len(self.indices if self.max_n_objects else self.data["image"])
+
+
 class CLEVRDataModule(pl.LightningDataModule):
     def __init__(
         self,
@@ -74,8 +122,7 @@ class CLEVRDataModule(pl.LightningDataModule):
         num_workers: int,
         resolution: Tuple[int, int],
         clevr_transforms: Optional[Callable] = None,
-        num_train_images: Optional[int] = None,
-        num_val_images: Optional[int] = None,
+        with_masks: Optional[bool] = True,
     ):
         super().__init__()
         self.data_root = data_root
@@ -85,20 +132,11 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.max_n_objects = max_n_objects
         self.num_workers = num_workers
         self.resolution = resolution
-        self.num_train_images = num_train_images
-        self.num_val_images = num_val_images
+        self.with_masks = with_masks
 
         print(
             f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
         )
-        if num_train_images:
-            print(
-                f"INFO: restricting the train dataset size to `num_train_images`: {num_train_images}"
-            )
-        if num_val_images:
-            print(
-                f"INFO: restricting the validation dataset size to `num_val_images`: {num_val_images}"
-            )
 
         if not self.clevr_transforms:
             # Slot Attention [0] uses the same transforms as IODINE [1]. IODINE
@@ -120,16 +158,15 @@ class CLEVRDataModule(pl.LightningDataModule):
                 ]
             )
 
-        self.train_dataset = CLEVRDataset(
+        dataset_object = CLEVRWithMasksDataset if self.with_masks else CLEVRDataset
+        self.train_dataset = dataset_object(
             data_root=self.data_root,
-            max_num_images=self.num_train_images,
             clevr_transforms=self.clevr_transforms,
             split="train",
             max_n_objects=self.max_n_objects,
         )
-        self.val_dataset = CLEVRDataset(
+        self.val_dataset = dataset_object(
             data_root=self.data_root,
-            max_num_images=self.num_val_images,
             clevr_transforms=self.clevr_transforms,
             split="val",
             max_n_objects=self.max_n_objects,
