@@ -3,7 +3,9 @@ import math
 
 import torch
 import torch.nn as nn
+import numpy as np
 from pytorch_lightning import Callback
+from slot_attention.segmentation_metrics import adjusted_rand_index
 
 import wandb
 
@@ -47,6 +49,12 @@ def slightly_off_center_crop(image: torch.Tensor) -> torch.Tensor:
     crop = ((29, 221), (64, 256))  # Get center crop. (height, width)
     # `image` has shape [channels, height, width]
     return image[:, crop[0][0]:crop[0][1], crop[1][0]:crop[1][1]]
+
+
+def slightly_off_center_mask_crop(mask: torch.Tensor) -> torch.Tensor:
+    # `mask` has shape [max_num_entities, height, width, channels]
+    crop = ((29, 221), (64, 256))  # Get center crop. (height, width)
+    return mask[:, crop[0][0]:crop[0][1], crop[1][0]:crop[1][1], :]
 
 
 def compact(l: Any) -> Any:
@@ -174,3 +182,37 @@ def visualize(image, recon_orig, gen, attns, N=8):
     attns = attns[:N].expand(-1, -1, 3, H, W)
 
     return torch.cat((image, recon_orig, gen, attns), dim=1).view(-1, 3, H, W)
+
+def compute_ari(prediction, mask, batch_size, height, width, max_num_entities):
+    # Ground-truth segmentation masks are always returned in the canonical
+    # [batch_size, max_num_entities, height, width, channels] format. To use these
+    # as an input for `segmentation_metrics.adjusted_rand_index`, we need them in
+    # the [batch_size, n_points, n_true_groups] format,
+    # where n_true_groups == max_num_entities. We implement this reshape below.
+    # Note that 'oh' denotes 'one-hot'.
+    desired_shape = [batch_size,
+                    height * width,
+                    max_num_entities]
+    true_groups_oh = torch.permute(mask, [0, 2, 3, 4, 1])
+    # `true_groups_oh` has shape [batch_size, height, width, channels, max_num_entries]
+    true_groups_oh = torch.reshape(true_groups_oh, desired_shape)
+
+    # prediction = tf.random_uniform(desired_shape[:-1],
+    #                                         minval=0, maxval=max_num_entities,
+    #                                         dtype=tf.int32)
+    # prediction_oh = F.one_hot(prediction, max_num_entities)
+
+    ari = adjusted_rand_index(true_groups_oh[..., 1:], prediction)
+    return ari
+
+
+def flatten_all_but_last(tensor, n_dims=1):
+    shape = list(tensor.shape)
+    batch_dims = shape[:-n_dims]
+    flat_tensor = torch.reshape(tensor, [np.prod(batch_dims)] + shape[-n_dims:])
+
+    def unflatten(other_tensor):
+        other_shape = list(other_tensor.shape)
+        return torch.reshape(other_tensor, batch_dims + other_shape[1:])
+
+    return flat_tensor, unflatten

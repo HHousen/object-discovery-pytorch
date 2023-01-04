@@ -293,7 +293,7 @@ class SlotAttentionModel(nn.Module):
         loss = F.mse_loss(recon_combined, input)
         return {
             "loss": loss,
-        }
+        }, masks
 
 
 class SoftPositionEmbed(nn.Module):

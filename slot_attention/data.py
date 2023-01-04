@@ -10,7 +10,7 @@ from torchvision import transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from slot_attention.utils import compact, rescale, slightly_off_center_crop
+from slot_attention.utils import compact, rescale, slightly_off_center_crop, slightly_off_center_mask_crop, flatten_all_but_last
 
 
 class CLEVRDataset(Dataset):
@@ -70,12 +70,14 @@ class CLEVRWithMasksDataset(Dataset):
         self,
         data_root: str,
         clevr_transforms: Callable,
+        mask_transforms: Callable,
         max_n_objects: int = 10,
         split: str = "train",
     ):
         super().__init__()
         self.data_root = data_root
         self.clevr_transforms = clevr_transforms
+        self.mask_transforms = mask_transforms
         self.max_n_objects = max_n_objects
         self.split = split
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
@@ -106,7 +108,11 @@ class CLEVRWithMasksDataset(Dataset):
         else:
             index_to_load = index
         img = self.data["image"][index_to_load]
-        return self.clevr_transforms(img)
+        if self.split == "train":
+            return self.clevr_transforms(img)
+        else:
+            mask = self.data["mask"][index_to_load]
+            return self.clevr_transforms(img), self.mask_transforms(mask)
 
     def __len__(self):
         return len(self.indices if self.max_n_objects else self.data["image"])
@@ -122,6 +128,7 @@ class CLEVRDataModule(pl.LightningDataModule):
         num_workers: int,
         resolution: Tuple[int, int],
         clevr_transforms: Optional[Callable] = None,
+        mask_transforms: Optional[Callable] = None,
         with_masks: Optional[bool] = True,
     ):
         super().__init__()
@@ -129,10 +136,12 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.clevr_transforms = clevr_transforms
+        self.mask_transforms = mask_transforms
         self.max_n_objects = max_n_objects
         self.num_workers = num_workers
         self.resolution = resolution
         self.with_masks = with_masks
+        self.max_num_entries = 11
 
         print(
             f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
@@ -158,16 +167,40 @@ class CLEVRDataModule(pl.LightningDataModule):
                 ]
             )
 
+        if not self.mask_transforms:
+            def mask_transforms(mask):
+                # Based on https://github.com/deepmind/deepmind-research/blob/master/iodine/modules/data.py#L115
+                # `mask` has shape [max_num_entities, height, width, channels]
+                mask = torch.from_numpy(mask)
+                mask = slightly_off_center_mask_crop(mask)
+                mask = torch.permute(mask, [0, 3, 1, 2])
+                # `mask` has shape [max_num_entities, channels, height, width]
+                flat_mask, unflatten = flatten_all_but_last(mask, n_dims=3)
+                resize = transforms.Resize(self.resolution, interpolation=Image.NEAREST)
+                flat_mask = resize.forward(flat_mask)
+                mask = unflatten(flat_mask)
+                # `mask` has shape [max_num_entities, channels, height, width]
+                mask = torch.permute(mask, [0, 2, 3, 1])
+                # `mask` has shape [max_num_entities, height, width, channels]
+                return mask
+            self.mask_transforms = mask_transforms
+            # self.mask_transforms = transforms.Compose([
+            #     transforms.Lambda(slightly_off_center_mask_crop),
+            #     transforms.Resize(self.resolution, interpolation=Image.NEAREST),
+            # ])
+
         dataset_object = CLEVRWithMasksDataset if self.with_masks else CLEVRDataset
         self.train_dataset = dataset_object(
             data_root=self.data_root,
             clevr_transforms=self.clevr_transforms,
+            mask_transforms=self.mask_transforms,
             split="train",
             max_n_objects=self.max_n_objects,
         )
         self.val_dataset = dataset_object(
             data_root=self.data_root,
             clevr_transforms=self.clevr_transforms,
+            mask_transforms=self.mask_transforms,
             split="val",
             max_n_objects=self.max_n_objects,
         )
@@ -179,6 +212,7 @@ class CLEVRDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=True,
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -188,6 +222,7 @@ class CLEVRDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=True,
+            drop_last=True,
         )
 
 

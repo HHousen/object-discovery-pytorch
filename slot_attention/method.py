@@ -14,6 +14,7 @@ from slot_attention.utils import (
     cosine_anneal,
     linear_warmup,
     visualize,
+    compute_ari,
 )
 
 
@@ -34,6 +35,7 @@ class SlotAttentionMethod(pl.LightningModule):
         return self.model(input, **kwargs)
 
     def step(self, batch):
+        mask = None
         if self.params.model_type == "slate":
             self.tau = cosine_anneal(
                 self.trainer.global_step,
@@ -44,12 +46,12 @@ class SlotAttentionMethod(pl.LightningModule):
             )
             loss = self.model.loss_function(batch, self.tau, self.params.hard)
         elif self.params.model_type == "sa":
-            loss = self.model.loss_function(batch)
+            loss, mask = self.model.loss_function(batch)
 
-        return loss
+        return loss, mask
 
     def training_step(self, batch, batch_idx):
-        loss_dict = self.step(batch)
+        loss_dict, _ = self.step(batch)
         logs = {"train/" + key: val.item() for key, val in loss_dict.items()}
         self.log_dict(logs, sync_dist=True)
         return loss_dict["loss"]
@@ -62,7 +64,12 @@ class SlotAttentionMethod(pl.LightningModule):
         )
         perm = torch.randperm(self.params.batch_size)
         idx = perm[: self.params.n_samples]
-        batch = next(iter(dl))[idx]
+        batch = next(iter(dl))
+        if type(batch) == list:
+            batch = batch[0][idx]
+        else:
+            batch = batch[idx]
+        
         if self.params.accelerator:
             batch = batch.to(self.device)
         if self.params.model_type == "sa":
@@ -97,8 +104,19 @@ class SlotAttentionMethod(pl.LightningModule):
         return images
 
     def validation_step(self, batch, batch_idx):
-        loss = self.step(batch)
-        return loss
+        if type(batch) == list:
+            loss, predicted_mask = self.step(batch[0])
+            predicted_mask = torch.permute(predicted_mask, [0, 3, 4, 2, 1])
+            # `predicted_mask` has shape [batch_size, height, width, channels, num_entries]
+            predicted_mask = torch.squeeze(predicted_mask)
+            batch_size, height, width, num_entries = predicted_mask.shape
+            predicted_mask = torch.reshape(predicted_mask, [batch_size, height * width, num_entries])
+            ari = compute_ari(predicted_mask, batch[1], len(batch[0]), self.params.resolution[0], self.params.resolution[1], self.datamodule.max_num_entries)
+            loss["ari"] = ari
+            return loss
+        else:
+            loss, _ = self.step(batch)
+            return loss
 
     def validation_epoch_end(self, outputs):
         logs = {
