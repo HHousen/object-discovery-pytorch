@@ -10,7 +10,13 @@ from torchvision import transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from slot_attention.utils import compact, rescale, slightly_off_center_crop, slightly_off_center_mask_crop, flatten_all_but_last
+from slot_attention.utils import (
+    compact,
+    rescale,
+    slightly_off_center_crop,
+    slightly_off_center_mask_crop,
+    flatten_all_but_last,
+)
 
 
 class CLEVRDataset(Dataset):
@@ -168,6 +174,7 @@ class CLEVRDataModule(pl.LightningDataModule):
             )
 
         if not self.mask_transforms:
+
             def mask_transforms(mask):
                 # Based on https://github.com/deepmind/deepmind-research/blob/master/iodine/modules/data.py#L115
                 # `mask` has shape [max_num_entities, height, width, channels]
@@ -183,6 +190,7 @@ class CLEVRDataModule(pl.LightningDataModule):
                 mask = torch.permute(mask, [0, 2, 3, 1])
                 # `mask` has shape [max_num_entities, height, width, channels]
                 return mask
+
             self.mask_transforms = mask_transforms
             # self.mask_transforms = transforms.Compose([
             #     transforms.Lambda(slightly_off_center_mask_crop),

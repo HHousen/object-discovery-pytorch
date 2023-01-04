@@ -48,13 +48,13 @@ def rescale(x: torch.Tensor) -> torch.Tensor:
 def slightly_off_center_crop(image: torch.Tensor) -> torch.Tensor:
     crop = ((29, 221), (64, 256))  # Get center crop. (height, width)
     # `image` has shape [channels, height, width]
-    return image[:, crop[0][0]:crop[0][1], crop[1][0]:crop[1][1]]
+    return image[:, crop[0][0] : crop[0][1], crop[1][0] : crop[1][1]]
 
 
 def slightly_off_center_mask_crop(mask: torch.Tensor) -> torch.Tensor:
     # `mask` has shape [max_num_entities, height, width, channels]
     crop = ((29, 221), (64, 256))  # Get center crop. (height, width)
-    return mask[:, crop[0][0]:crop[0][1], crop[1][0]:crop[1][1], :]
+    return mask[:, crop[0][0] : crop[0][1], crop[1][0] : crop[1][1], :]
 
 
 def compact(l: Any) -> Any:
@@ -183,6 +183,7 @@ def visualize(image, recon_orig, gen, attns, N=8):
 
     return torch.cat((image, recon_orig, gen, attns), dim=1).view(-1, 3, H, W)
 
+
 def compute_ari(prediction, mask, batch_size, height, width, max_num_entities):
     # Ground-truth segmentation masks are always returned in the canonical
     # [batch_size, max_num_entities, height, width, channels] format. To use these
@@ -190,9 +191,7 @@ def compute_ari(prediction, mask, batch_size, height, width, max_num_entities):
     # the [batch_size, n_points, n_true_groups] format,
     # where n_true_groups == max_num_entities. We implement this reshape below.
     # Note that 'oh' denotes 'one-hot'.
-    desired_shape = [batch_size,
-                    height * width,
-                    max_num_entities]
+    desired_shape = [batch_size, height * width, max_num_entities]
     true_groups_oh = torch.permute(mask, [0, 2, 3, 4, 1])
     # `true_groups_oh` has shape [batch_size, height, width, channels, max_num_entries]
     true_groups_oh = torch.reshape(true_groups_oh, desired_shape)

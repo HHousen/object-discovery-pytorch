@@ -69,7 +69,7 @@ class SlotAttentionMethod(pl.LightningModule):
             batch = batch[0][idx]
         else:
             batch = batch[idx]
-        
+
         if self.params.accelerator:
             batch = batch.to(self.device)
         if self.params.model_type == "sa":
@@ -110,8 +110,17 @@ class SlotAttentionMethod(pl.LightningModule):
             # `predicted_mask` has shape [batch_size, height, width, channels, num_entries]
             predicted_mask = torch.squeeze(predicted_mask)
             batch_size, height, width, num_entries = predicted_mask.shape
-            predicted_mask = torch.reshape(predicted_mask, [batch_size, height * width, num_entries])
-            ari = compute_ari(predicted_mask, batch[1], len(batch[0]), self.params.resolution[0], self.params.resolution[1], self.datamodule.max_num_entries)
+            predicted_mask = torch.reshape(
+                predicted_mask, [batch_size, height * width, num_entries]
+            )
+            ari = compute_ari(
+                predicted_mask,
+                batch[1],
+                len(batch[0]),
+                self.params.resolution[0],
+                self.params.resolution[1],
+                self.datamodule.max_num_entries,
+            )
             loss["ari"] = ari
             return loss
         else:

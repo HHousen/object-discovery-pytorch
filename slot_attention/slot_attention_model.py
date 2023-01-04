@@ -291,9 +291,7 @@ class SlotAttentionModel(nn.Module):
     def loss_function(self, input, global_step=None):
         recon_combined, recons, masks, slots = self.forward(input)
         loss = F.mse_loss(recon_combined, input)
-        return {
-            "loss": loss,
-        }, masks
+        return {"loss": loss,}, masks
 
 
 class SoftPositionEmbed(nn.Module):

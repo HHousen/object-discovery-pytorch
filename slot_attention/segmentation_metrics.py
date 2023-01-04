@@ -4,7 +4,8 @@ import torch.nn.functional as F
 
 """Implementation of the adjusted Rand index."""
 
-def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
+
+def adjusted_rand_index(true_mask, pred_mask, name="ari_score"):
     r"""Computes the adjusted Rand index (ARI), a clustering similarity score.
     This implementation ignores points with no cluster label in `true_mask` (i.e.
     those points for which `true_mask` is a zero vector). In the context of
@@ -35,16 +36,17 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
     _, n_points, n_true_groups = true_mask.shape
     n_pred_groups = pred_mask.shape[-1]
     if n_points <= n_true_groups and n_points <= n_pred_groups:
-      # This rules out the n_true_groups == n_pred_groups == n_points
-      # corner case, and also n_true_groups == n_pred_groups == 0, since
-      # that would imply n_points == 0 too.
-      # The sklearn implementation has a corner-case branch which does
-      # handle this. We chose not to support these cases to avoid counting
-      # distinct clusters just to check if we have one cluster per datapoint.
-      raise ValueError(
-          "adjusted_rand_index requires n_groups < n_points. We don't handle "
-          "the special cases that can occur when you have one cluster "
-          "per datapoint.")
+        # This rules out the n_true_groups == n_pred_groups == n_points
+        # corner case, and also n_true_groups == n_pred_groups == 0, since
+        # that would imply n_points == 0 too.
+        # The sklearn implementation has a corner-case branch which does
+        # handle this. We chose not to support these cases to avoid counting
+        # distinct clusters just to check if we have one cluster per datapoint.
+        raise ValueError(
+            "adjusted_rand_index requires n_groups < n_points. We don't handle "
+            "the special cases that can occur when you have one cluster "
+            "per datapoint."
+        )
 
     true_group_ids = torch.argmax(true_mask, -1)
     pred_group_ids = torch.argmax(pred_mask, -1)
@@ -54,14 +56,14 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
 
     n_points = torch.sum(true_mask_oh, axis=[1, 2]).type(torch.float32)
 
-    nij = torch.einsum('bji,bjk->bki', pred_mask_oh, true_mask_oh)
+    nij = torch.einsum("bji,bjk->bki", pred_mask_oh, true_mask_oh)
     a = torch.sum(nij, axis=1)
     b = torch.sum(nij, axis=2)
 
     rindex = torch.sum(nij * (nij - 1), axis=[1, 2])
     aindex = torch.sum(a * (a - 1), axis=1)
     bindex = torch.sum(b * (b - 1), axis=1)
-    expected_rindex = aindex * bindex / (n_points*(n_points-1))
+    expected_rindex = aindex * bindex / (n_points * (n_points - 1))
     max_rindex = (aindex + bindex) / 2
     ari = (rindex - expected_rindex) / (max_rindex - expected_rindex)
 
@@ -69,7 +71,8 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
     # special-cased (to return 1) as the above formula gives a divide-by-zero.
     # This might not work when true_mask has values that do not sum to one:
     both_single_cluster = torch.logical_and(
-        _all_equal(true_group_ids), _all_equal(pred_group_ids))
+        _all_equal(true_group_ids), _all_equal(pred_group_ids)
+    )
     return torch.where(both_single_cluster, torch.ones_like(ari), ari)
 
 
