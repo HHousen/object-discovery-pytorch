@@ -12,7 +12,7 @@ dataset = clevr_with_masks.dataset(
     "clevr_with_masks_train.tfrecords"
 ).as_numpy_iterator()
 
-with h5py.File("data.h5", "w") as f:
+with h5py.File("clevr_with_masks.h5", "w") as f:
     for idx, entry in tqdm(enumerate(dataset), total=100_000):
         for key, value in entry.items():
             value = value[np.newaxis, ...]
