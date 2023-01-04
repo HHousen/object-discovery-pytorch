@@ -198,10 +198,5 @@ class SlotAttentionMethod(pl.LightningModule):
 
         return (
             [optimizer],
-            [
-                {
-                    "scheduler": scheduler,
-                    "interval": "step",
-                }
-            ],
+            [{"scheduler": scheduler, "interval": "step",}],
         )

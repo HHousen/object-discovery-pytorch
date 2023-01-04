@@ -6,11 +6,16 @@ from slot_attention.data import CLEVRDataModule, Shapes3dDataModule
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
-from slot_attention.params import merge_namespaces, training_params, slot_attention_params, slate_params
+from slot_attention.params import (
+    merge_namespaces,
+    training_params,
+    slot_attention_params,
+    slate_params,
+)
 from slot_attention.utils import ImageLogCallback
 
 
-def main(params = None):
+def main(params=None):
     if params is None:
         params = training_params
         if params.model_type == "slate":
@@ -79,10 +84,7 @@ def main(params = None):
         accumulate_grad_batches=params.accumulate_grad_batches,
         gradient_clip_val=params.gradient_clip_val,
         log_every_n_steps=50,
-        callbacks=[
-            LearningRateMonitor("step"),
-            ImageLogCallback(),
-        ]
+        callbacks=[LearningRateMonitor("step"), ImageLogCallback(),]
         if params.is_logger_enabled
         else [],
     )

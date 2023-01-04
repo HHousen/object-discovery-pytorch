@@ -189,14 +189,8 @@ class Shapes3dDataModule(pl.LightningDataModule):
         self.val_batch_size = val_batch_size
         self.num_workers = num_workers
 
-        self.train_dataset = Shapes3D(
-            root=self.data_root,
-            phase="train",
-        )
-        self.val_dataset = Shapes3D(
-            root=self.data_root,
-            phase="val",
-        )
+        self.train_dataset = Shapes3D(root=self.data_root, phase="train",)
+        self.val_dataset = Shapes3D(root=self.data_root, phase="val",)
 
     def train_dataloader(self):
         return DataLoader(
