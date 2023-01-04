@@ -9,7 +9,7 @@ from torchvision import transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from slot_attention.utils import compact, rescale
+from slot_attention.utils import compact, rescale, slightly_off_center_crop
 
 
 class CLEVRDataset(Dataset):
@@ -101,16 +101,21 @@ class CLEVRDataModule(pl.LightningDataModule):
             )
 
         if not self.clevr_transforms:
-            # Same transforms as in IODINE (unofficial implementation: https://github.com/zhixuan-lin/IODINE/blob/master/lib/data/clevr.py)
-            # Official Slot Attention implementation center crops assuming a height of
-            # 250, but actual height is 240. https://github.com/google-research/google-research/blob/master/slot_attention/data.py#L28
+            # Slot Attention [0] uses the same transforms as IODINE [1]. IODINE
+            # claims to do a center crop, but assumes the images have a height
+            # of 250, while they actually have a height of 240. We use the same
+            # transforms, evevn though they are slightly off.
+            # [0]: https://github.com/google-research/google-research/blob/master/slot_attention/data.py#L28
+            # [1]: https://github.com/deepmind/deepmind-research/blob/11c2ab53e8afd24afa8904f22fd81b699bfbce6e/iodine/modules/data.py#L191
             # In original tfrecords format, CLEVR (with masks) image shape is
             # (height, width, channels) = (240, 320, 3).
             clevr_transforms = transforms.Compose(
                 [
+                    # image has shape (H x W x C)
                     transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                    # image has shape (C x H x W)
                     transforms.Lambda(rescale),  # rescale between -1 and 1
-                    transforms.CenterCrop(192),
+                    transforms.CenterCrop(slightly_off_center_crop),
                     transforms.Resize(self.resolution),
                 ]
             )

@@ -43,6 +43,12 @@ def rescale(x: torch.Tensor) -> torch.Tensor:
     return x * 2 - 1
 
 
+def slightly_off_center_crop(image: torch.Tensor) -> torch.Tensor:
+    crop = ((29, 221), (64, 256))  # Get center crop. (height, width)
+    # `image` has shape [channels, height, width]
+    return image[:, crop[0][0]:crop[0][1], crop[1][0]:crop[1][1]]
+
+
 def compact(l: Any) -> Any:
     return list(filter(None, l))
 
