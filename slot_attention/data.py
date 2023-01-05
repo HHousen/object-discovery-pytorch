@@ -183,7 +183,9 @@ class CLEVRDataModule(pl.LightningDataModule):
                 mask = torch.permute(mask, [0, 3, 1, 2])
                 # `mask` has shape [max_num_entities, channels, height, width]
                 flat_mask, unflatten = flatten_all_but_last(mask, n_dims=3)
-                resize = transforms.Resize(self.resolution, interpolation=Image.NEAREST)
+                resize = transforms.Resize(
+                    self.resolution, interpolation=transforms.InterpolationMode.NEAREST
+                )
                 flat_mask = resize.forward(flat_mask)
                 mask = unflatten(flat_mask)
                 # `mask` has shape [max_num_entities, channels, height, width]
@@ -192,10 +194,6 @@ class CLEVRDataModule(pl.LightningDataModule):
                 return mask
 
             self.mask_transforms = mask_transforms
-            # self.mask_transforms = transforms.Compose([
-            #     transforms.Lambda(slightly_off_center_mask_crop),
-            #     transforms.Resize(self.resolution, interpolation=Image.NEAREST),
-            # ])
 
         dataset_object = CLEVRWithMasksDataset if self.with_masks else CLEVRDataset
         self.train_dataset = dataset_object(

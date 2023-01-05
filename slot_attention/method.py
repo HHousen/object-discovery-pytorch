@@ -113,6 +113,9 @@ class SlotAttentionMethod(pl.LightningModule):
             predicted_mask = torch.reshape(
                 predicted_mask, [batch_size, height * width, num_entries]
             )
+            # `predicted_mask` has shape [batch_size, height * width, num_entries]
+            # Scale from [0, 1] to [0, 255] to match the true mask.
+            predicted_mask = (predicted_mask * 255).type(torch.int)
             ari = compute_ari(
                 predicted_mask,
                 batch[1],
