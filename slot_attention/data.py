@@ -72,6 +72,7 @@ class CLEVRDataset(Dataset):
 
 
 class CLEVRWithMasksDataset(Dataset):
+    # Dataset details: https://github.com/deepmind/multi_object_datasets#clevr-with-masks
     def __init__(
         self,
         data_root: str,
