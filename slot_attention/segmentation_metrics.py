@@ -70,7 +70,7 @@ def adjusted_rand_index(true_mask, pred_mask, name="ari_score"):
     ari = (rindex - expected_rindex) / denominator
     # If a divide by 0 occurs, set the ARI value to 1.
     zeros_in_denominator = torch.argwhere(denominator == 0).flatten()
-    if zeros_in_denominator:
+    if zeros_in_denominator.nelement() > 0:
         ari[zeros_in_denominator] = 1
 
     # The case where n_true_groups == n_pred_groups == 1 needs to be
