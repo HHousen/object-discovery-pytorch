@@ -1,5 +1,6 @@
 import json
 import os
+from glob import glob
 from typing import Callable, List, Optional, Tuple
 
 import torch
@@ -125,6 +126,53 @@ class CLEVRWithMasksDataset(Dataset):
         return len(self.indices if self.max_n_objects else self.data["image"])
 
 
+class RAVENSRobotDataset(Dataset):
+    # Dataset generated using https://github.com/HHousen/ravens, which is a
+    # fork of https://github.com/google-research/ravens.
+    def __init__(
+        self,
+        data_root: str,
+        ravens_transforms: Callable,
+        mask_transforms: Callable,
+        max_n_objects: int = 10,
+        split: str = "train",
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.ravens_transforms = ravens_transforms
+        self.mask_transforms = mask_transforms
+        self.max_n_objects = max_n_objects
+        self.split = split
+        assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
+        assert self.split == "train" or self.split == "test"
+
+        data_path = glob(os.path.join(self.data_root, f"*_{self.split}.h5"))[0]
+        self.data = h5py.File(data_path, "r")
+        if self.max_n_objects:
+            # `num_objects_on_table` stores the number of objects on the table
+            # for a set of 3 angles (images) of one scene. So, expand it to
+            # match the size of the images and masks.
+            num_objects_on_table = np.repeat(self.data["num_objects_on_table"], 3)
+            self.indices = np.argwhere(
+                num_objects_on_table <= self.max_n_objects
+            ).flatten()
+
+    def __getitem__(self, index: int):
+        if self.max_n_objects:
+            index_to_load = self.indices[index]
+        else:
+            index_to_load = index
+        img = self.data["color"][index_to_load]
+        if self.split == "train":
+            return self.ravens_transforms(img)
+        else:
+            mask = self.data["segm"][index_to_load]
+            return self.ravens_transforms(img), self.mask_transforms(mask)
+
+    def __len__(self):
+        return len(self.indices if self.max_n_objects else self.data["color"])
+
+
 class CLEVRDataModule(pl.LightningDataModule):
     def __init__(
         self,
@@ -207,6 +255,102 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.val_dataset = dataset_object(
             data_root=self.data_root,
             clevr_transforms=self.clevr_transforms,
+            mask_transforms=self.mask_transforms,
+            split="val",
+            max_n_objects=self.max_n_objects,
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+
+class RAVENSRobotDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        data_root: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        max_n_objects: int,
+        num_workers: int,
+        resolution: Tuple[int, int],
+        ravens_transforms: Optional[Callable] = None,
+        mask_transforms: Optional[Callable] = None,
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.ravens_transforms = ravens_transforms
+        self.mask_transforms = mask_transforms
+        self.max_n_objects = max_n_objects
+        self.num_workers = num_workers
+        self.resolution = resolution
+        # There will be a maximum of 12 items in the segmentation mask: 8 items
+        # on the table plus the background, table, robot, and robot arm.
+        self.max_num_entries = 12
+
+        print(
+            f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
+        )
+
+        if not self.ravens_transforms:
+            self.ravens_transforms = transforms.Compose(
+                [
+                    # image has shape (H x W x C)
+                    transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                    # image has shape (C x H x W)
+                    transforms.Lambda(rescale),  # rescale between -1 and 1
+                    transforms.CenterCrop((480, 500)),
+                    transforms.Resize(self.resolution),
+                ]
+            )
+
+        if not self.mask_transforms:
+
+            def mask_transforms(mask):
+                # `mask` has shape [height, width]
+                mask = torch.from_numpy(mask)
+                mask = mask.unsqueeze(0)
+                # `mask` has shape [channel, height, width]
+                transform_func = transforms.Compose(
+                    [
+                        transforms.CenterCrop((480, 500)),
+                        transforms.Resize(self.resolution),
+                    ]
+                )
+                mask = transform_func(mask)
+                mask = mask.permute([1, 2, 0])
+                return mask
+
+            self.mask_transforms = mask_transforms
+
+        self.train_dataset = RAVENSRobotDataset(
+            data_root=self.data_root,
+            ravens_transforms=self.ravens_transforms,
+            mask_transforms=self.mask_transforms,
+            split="train",
+            max_n_objects=self.max_n_objects,
+        )
+        self.val_dataset = RAVENSRobotDataset(
+            data_root=self.data_root,
+            ravens_transforms=self.ravens_transforms,
             mask_transforms=self.mask_transforms,
             split="val",
             max_n_objects=self.max_n_objects,
