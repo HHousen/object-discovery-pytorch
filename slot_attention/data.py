@@ -4,6 +4,7 @@ from glob import glob
 from typing import Callable, List, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 import h5py
 import numpy as np
 import pytorch_lightning as pl
@@ -146,7 +147,7 @@ class RAVENSRobotDataset(Dataset):
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
         assert self.split == "train" or self.split == "test"
 
-        data_path = glob(os.path.join(self.data_root, f"*_{self.split}.h5"))[0]
+        data_path = glob(os.path.join(self.data_root, f"ravens_*_{self.split}.h5"))[0]
         self.data = h5py.File(data_path, "r")
         if self.max_n_objects:
             # `num_objects_on_table` stores the number of objects on the table
@@ -337,6 +338,11 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
                 )
                 mask = transform_func(mask)
                 mask = mask.permute([1, 2, 0])
+                # `mask` has shape [height, width, channel]
+                mask = F.one_hot(mask.to(torch.int64), self.max_num_entries)
+                # `mask` has shape [height, width, channel, max_num_entries]
+                mask = mask.permute([3, 0, 1, 2])
+                # `mask` has shape [max_num_entries, height, width, channel]
                 return mask
 
             self.mask_transforms = mask_transforms
@@ -352,7 +358,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
             data_root=self.data_root,
             ravens_transforms=self.ravens_transforms,
             mask_transforms=self.mask_transforms,
-            split="val",
+            split="test",
             max_n_objects=self.max_n_objects,
         )
 
