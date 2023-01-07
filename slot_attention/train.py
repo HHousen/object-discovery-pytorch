@@ -2,7 +2,11 @@ import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 
-from slot_attention.data import CLEVRDataModule, Shapes3dDataModule
+from slot_attention.data import (
+    CLEVRDataModule,
+    Shapes3dDataModule,
+    RAVENSRobotDataModule,
+)
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
 from slot_attention.slate_model import SLATE
@@ -25,24 +29,37 @@ def main(params=None):
 
     assert params.num_slots > 1, "Must have at least 2 slots."
 
-    clevr_datamodule = CLEVRDataModule(
-        data_root=params.data_root,
-        max_n_objects=params.num_slots - 1,
-        train_batch_size=params.batch_size,
-        val_batch_size=params.val_batch_size,
-        num_workers=params.num_workers,
-        resolution=params.resolution,
-    )
-    # clevr_datamodule = Shapes3dDataModule(
-    #     data_root=params.data_root,
-    #     train_batch_size=params.batch_size,
-    #     val_batch_size=params.val_batch_size,
-    #     num_workers=params.num_workers,
-    # )
+    if params.dataset == "clevr":
+        datamodule = CLEVRDataModule(
+            data_root=params.data_root,
+            max_n_objects=params.num_slots - 1,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
+            resolution=params.resolution,
+        )
+    elif params.dataset == "shapes3d":
+        datamodule = Shapes3dDataModule(
+            data_root=params.data_root,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
+        )
+    elif params.dataset == "ravens":
+        datamodule = RAVENSRobotDataModule(
+            data_root=params.data_root,
+            # `max_n_objects` is the number of objects on the table. It does
+            # not count the background, table, robot, and robot arm.
+            max_n_objects=params.num_slots - 4,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
+            resolution=params.resolution,
+        )
 
     print(
         f"Training set size (images must have {params.num_slots - 1} objects):",
-        len(clevr_datamodule.train_dataset),
+        len(datamodule.train_dataset),
     )
 
     if params.model_type == "sa":
@@ -66,9 +83,7 @@ def main(params=None):
             num_dec_blocks=params.num_dec_blocks,
         )
 
-    method = SlotAttentionMethod(
-        model=model, datamodule=clevr_datamodule, params=params
-    )
+    method = SlotAttentionMethod(model=model, datamodule=datamodule, params=params)
 
     logger = pl_loggers.WandbLogger(project="slot-attention-clevr6")
 
@@ -86,7 +101,7 @@ def main(params=None):
         if params.is_logger_enabled
         else [],
     )
-    trainer.fit(method, datamodule=clevr_datamodule)
+    trainer.fit(method, datamodule=datamodule)
 
 
 if __name__ == "__main__":
