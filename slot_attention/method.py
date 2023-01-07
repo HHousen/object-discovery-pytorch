@@ -104,7 +104,7 @@ class SlotAttentionMethod(pl.LightningModule):
         return images
 
     def validation_step(self, batch, batch_idx):
-        if type(batch) == list:
+        if type(batch) == list and self.model.supports_masks:
             loss, predicted_mask = self.step(batch[0])
             predicted_mask = torch.permute(predicted_mask, [0, 3, 4, 2, 1])
             # `predicted_mask` has shape [batch_size, height, width, channels, num_entries]
@@ -127,6 +127,8 @@ class SlotAttentionMethod(pl.LightningModule):
             loss["ari"] = ari
             return loss
         else:
+            if type(batch) == list:
+                batch = batch[0]
             loss, _ = self.step(batch)
             return loss
 
@@ -222,8 +224,9 @@ class SlotAttentionMethod(pl.LightningModule):
                 factor=0.5,
                 patience=self.params.patience,
             )
-            scheduler = optim.lr_scheduler.ChainedScheduler(
-                [scheduler, reduce_on_plateau]
+            return (
+                [optimizer],
+                [{"scheduler": scheduler, "interval": "step",}, {"scheduler": reduce_on_plateau, "interval": "epoch", "monitor": "validation/loss",}],
             )
 
         return (

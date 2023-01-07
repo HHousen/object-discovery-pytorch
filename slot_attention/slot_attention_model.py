@@ -146,6 +146,8 @@ class SlotAttentionModel(nn.Module):
         decoder_resolution: Tuple[int, int] = (8, 8),
     ):
         super().__init__()
+        self.supports_masks = True
+
         self.resolution = resolution
         self.num_slots = num_slots
         self.num_iterations = num_iterations

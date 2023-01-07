@@ -144,6 +144,7 @@ class SLATE(nn.Module):
         num_dec_blocks,
     ):
         super().__init__()
+        self.supports_masks = False
 
         self.num_slots = num_slots
         self.vocab_size = vocab_size
@@ -221,6 +222,7 @@ class SLATE(nn.Module):
             .repeat_interleave(W // W_enc, dim=-1)
         )
         attns = image.unsqueeze(1) * attns + 1.0 - attns
+        # `attns` has shape [batch_size, num_slots, channels, height, width]
 
         # apply transformer
         slots = self.slot_proj(slots)
