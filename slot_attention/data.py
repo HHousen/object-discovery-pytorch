@@ -137,6 +137,7 @@ class RAVENSRobotDataset(Dataset):
         mask_transforms: Callable,
         max_n_objects: int = 10,
         split: str = "train",
+        only_orientation: Optional[int] = None,  # currently, needs `max_n_objects` set
     ):
         super().__init__()
         self.data_root = data_root
@@ -144,6 +145,7 @@ class RAVENSRobotDataset(Dataset):
         self.mask_transforms = mask_transforms
         self.max_n_objects = max_n_objects
         self.split = split
+        self.only_orientation = only_orientation
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
         assert self.split == "train" or self.split == "test"
 
@@ -157,6 +159,11 @@ class RAVENSRobotDataset(Dataset):
             self.indices = np.argwhere(
                 num_objects_on_table <= self.max_n_objects
             ).flatten()
+            # Every third image has the same orientation. Thus, changing the
+            # start index and getting every third image will retrieve all of
+            # one orientation.
+            if self.only_orientation is not None:
+                self.indices = self.indices[self.only_orientation :: 3]
 
     def __getitem__(self, index: int):
         if self.max_n_objects:
@@ -293,6 +300,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
         resolution: Tuple[int, int],
         ravens_transforms: Optional[Callable] = None,
         mask_transforms: Optional[Callable] = None,
+        alternative_crop: bool = False,
     ):
         super().__init__()
         self.data_root = data_root
@@ -303,6 +311,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
         self.max_n_objects = max_n_objects
         self.num_workers = num_workers
         self.resolution = resolution
+        self.alternative_crop = alternative_crop
         # There will be a maximum of 12 items in the segmentation mask: 8 items
         # on the table plus the background, table, robot, and robot arm.
         self.max_num_entries = 12
@@ -311,6 +320,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
             f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
         )
 
+        alt_crop_func = lambda img: img[:, 232:-10, 50:-50]
         if not self.ravens_transforms:
             self.ravens_transforms = transforms.Compose(
                 [
@@ -318,7 +328,9 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
                     transforms.ToTensor(),  # rescales to range [0.0, 1.0]
                     # image has shape (C x H x W)
                     transforms.Lambda(rescale),  # rescale between -1 and 1
-                    transforms.CenterCrop((480, 500)),
+                    transforms.Lambda(alt_crop_func)
+                    if self.alternative_crop
+                    else transforms.CenterCrop((480, 500)),
                     transforms.Resize(self.resolution),
                 ]
             )
@@ -332,8 +344,13 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
                 # `mask` has shape [channel, height, width]
                 transform_func = transforms.Compose(
                     [
-                        transforms.CenterCrop((480, 500)),
-                        transforms.Resize(self.resolution),
+                        transforms.Lambda(alt_crop_func)
+                        if self.alternative_crop
+                        else transforms.CenterCrop((480, 500)),
+                        transforms.Resize(
+                            self.resolution,
+                            interpolation=transforms.InterpolationMode.NEAREST,
+                        ),
                     ]
                 )
                 mask = transform_func(mask)
@@ -353,6 +370,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
             mask_transforms=self.mask_transforms,
             split="train",
             max_n_objects=self.max_n_objects,
+            only_orientation=0 if self.alternative_crop else None,
         )
         self.val_dataset = RAVENSRobotDataset(
             data_root=self.data_root,
@@ -360,6 +378,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
             mask_transforms=self.mask_transforms,
             split="test",
             max_n_objects=self.max_n_objects,
+            only_orientation=0 if self.alternative_crop else None,
         )
 
     def train_dataloader(self):

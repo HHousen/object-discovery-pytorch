@@ -50,11 +50,14 @@ def main(params=None):
             data_root=params.data_root,
             # `max_n_objects` is the number of objects on the table. It does
             # not count the background, table, robot, and robot arm.
-            max_n_objects=params.num_slots - 4,
+            max_n_objects=params.num_slots - 1
+            if params.alternative_crop
+            else params.num_slots - 4,
             train_batch_size=params.batch_size,
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
             resolution=params.resolution,
+            alternative_crop=params.alternative_crop,
         )
 
     print(
