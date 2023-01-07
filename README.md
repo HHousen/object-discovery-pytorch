@@ -1,35 +1,62 @@
 # Slot Attention PyTorch
 
-This is a re-implementation of "Object-Centric Learning with Slot Attention" in PyTorch (https://arxiv.org/abs/2006.15055).
+> This is an implementation of Slot Attention (["Object-Centric Learning with Slot Attention"](https://arxiv.org/abs/2006.15055)) and SLATE (["Illiterate DALL-E Learns to Compose"](https://arxiv.org/abs/2110.11405)) in PyTorch.
+
+[![GitHub license](https://img.shields.io/github/license/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/pull/)
+
+**This repo is in active development. Expect frequent breaking changes.**
+
+The initial code for this repo was forked from [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention).
 
 ![Outputs of our slot attention model. This image demonstrates the models ability to divide objects (or parts of objects) into slots.](./slot_attention_results.png)
 
-## Requirements
+## Setup
+
+### Requirements
 
 - [Poetry](https://python-poetry.org/docs/)
-- Python >= 3.8
-- PyTorch >= 1.7.1
-- Pytorch Lightning >= 1.1.4
+- Python >= 3.9
 - CUDA enabled computing device
 
-Note: the model was run using a Nvidia Tesla V100 16GB GPU.
+### Getting Started
 
-## Getting Started
-
-Run `run.sh` to get started. This script will install the dependencies, download the [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/) dataset and run the model.
+1. Clone the repo: `git clone https://github.com/HHousen/slot-attention-pytorch/ && cd slot-attention-pytorch`.
+2. Install requirements and activate environment: `poetry install` then `poetry shell`.
+3. Download the [CLEVR (with masks)](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO) dataset (or the original [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/) dataset by running `./download_clevr.sh /tmp/CLEVR`). More details about the datasets are below.
+4. Modify the hyperparameters in [slot_attention/params.py](slot_attention/params.py) to fit your needs. Make sure to change `data_root` to the location of your dataset.
+5. Train a model: `python -m slot_attention.train`.
 
 ## Usage
 
-```bash
-python slot_attention/train.py
-```
+Train a model by running `python -m slot_attention.train`.
 
-Modify `SlotAttentionParams` in `slot_attention/train.py` to modify the hyperparameters. See `slot_attenion/params.py` for the default hyperparamters.
+Hyperparameters can be changed in [slot_attention/params.py](slot_attention/params.py). `training_params` has global parameters that apply to all model types. These parameters can be overridden if the same key is present in `slot_attention_params` or `slate_params`. Change the global parameter `model_type` to `sa` to use Slot Attention (`SlotAttentionModel` in slot_attention_model.py) or `slate` to use SLATE (`SLATE` in slate_model.py). This will determine which model's set of parameters will be merged with `training_params`.
+
+### Datasets
+
+Select a dataset by changing the `dataset` parameter in [slot_attention/params.py](slot_attention/params.py) to the name of the dataset: `clevr`, `shapes3d`, or `ravens`. Then, set the `data_root` parameter to the location of the data. The code for loading supported datasets is in [slot_attention/data.py](slot_attention/data.py).
+
+1. [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/): Download by executing [download_clevr.sh](./download_clevr.sh).
+2. [CLEVR (with masks)](https://github.com/deepmind/multi_object_datasets#clevr-with-masks): [Original TFRecords Download](https://console.cloud.google.com/storage/browser/multi-object-datasets/clevr_with_masks) / [Our HDF5 PyTorch Version](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO).
+    - This dataset is a regenerated version of CLEVR but with ground-truth segmentation masks. This enables the training script to calculate Adjusted Rand Index (ARI) during validation runs.
+    - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [slot_attention/train.py](slot_attention/train.py) script.
+    - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the `data_scripts/preprocess_clevr_with_masks.py` script, which takes approximately 2 hours to execute depending on your machine.
+3. [3D Shapes](https://github.com/deepmind/3d-shapes): [Official Google Cloud Bucket](https://console.cloud.google.com/storage/browser/3d-shapes)
+4. RAVENS Robot Data
+    - We generated a dataset similar in structure to CLEVR (with masks) but of robotic images using [RAVENS](https://github.com/google-research/ravens). Our modified version of RAVENS used to generate the dataset is [HHousen/ravens](https://github.com/HHousen/ravens).
+    - The dataset contains 85,002 images split 70,002 train and 15K validation/test.
 
 ### Logging
 
 To log outputs to [wandb](https://wandb.ai/home), run `wandb login YOUR_API_KEY` and set `is_logging_enabled=True` in `SlotAttentionParams`.
 
-## Acknowledgements
+If you use a dataset with ground-truth segmentation masks, then the Adjusted Rand Index (ARI), a clustering similarity score, will be logged for each validation loop. We convert the implementation from [deepmind/multi_object_datasets](https://github.com/deepmind/multi_object_datasets) to PyTorch in [slot_attention/segmentation_metrics.py](slot_attention/segmentation_metrics.py).
 
-Special thanks to the original authors of the paper: Francesco Locatello, Dirk Weissenborn, Thomas Unterthiner, Aravindh Mahendran, Georg Heigold, Jakob Uszkoreit, Alexey Dosovitskiy, and Thomas Kipf.
+## References
+
+1. [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention): An unofficial implementation of Slot Attention from which this repo was forked.
+2. Slot Attention: [Official Code](https://github.com/google-research/google-research/tree/master/slot_attention) / ["Object-Centric Learning with Slot Attention"](https://arxiv.org/abs/2006.15055).
+3. SLATE: [Official Code](https://github.com/singhgautam/slate) / ["Illiterate DALL-E Learns to Compose"](https://arxiv.org/abs/2110.11405).
+4. IODINE: [Official Code](https://github.com/deepmind/deepmind-research/tree/master/iodine) / ["Multi-Object Representation Learning with Iterative Variational Inference"](https://arxiv.org/abs/1903.00450). In the Slot Attention paper, IODINE was frequently used for comparison. The IODINE code was helpful to create this repo.
+5. Multi-Object Datasets: [deepmind/multi_object_datasets](https://github.com/deepmind/multi_object_datasets). This is the original source of the [CLEVR (with masks)](https://github.com/deepmind/multi_object_datasets#clevr-with-masks) dataset.
+6. Implicit Slot Attention: ["Object Representations as Fixed Points: Training Iterative Refinement Algorithms with Implicit Differentiation"](https://arxiv.org/abs/2207.00787). This paper explains a one-line change that improves the optimization of Slot Attention while simultaneously making backpropagation have constant space and time complexity.
