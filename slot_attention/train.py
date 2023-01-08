@@ -29,6 +29,7 @@ def main(params=None):
             params = merge_namespaces(params, slot_attention_params)
 
     assert params.num_slots > 1, "Must have at least 2 slots."
+    params.neg_1_to_pos_1_scale = params.model_type == "sa"
 
     if params.dataset == "clevr":
         datamodule = CLEVRDataModule(
@@ -38,6 +39,7 @@ def main(params=None):
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
             resolution=params.resolution,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
         )
     elif params.dataset == "shapes3d":
         assert params.resolution == (
@@ -49,6 +51,7 @@ def main(params=None):
             train_batch_size=params.batch_size,
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
         )
     elif params.dataset == "ravens":
         datamodule = RAVENSRobotDataModule(
@@ -63,6 +66,7 @@ def main(params=None):
             num_workers=params.num_workers,
             resolution=params.resolution,
             alternative_crop=params.alternative_crop,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
         )
     elif params.dataset == "sketchy":
         assert params.resolution == (
@@ -74,6 +78,7 @@ def main(params=None):
             train_batch_size=params.batch_size,
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
         )
 
     print(

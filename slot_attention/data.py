@@ -193,6 +193,7 @@ class CLEVRDataModule(pl.LightningDataModule):
         clevr_transforms: Optional[Callable] = None,
         mask_transforms: Optional[Callable] = None,
         with_masks: Optional[bool] = True,
+        neg_1_to_pos_1_scale: bool = True,
     ):
         super().__init__()
         self.data_root = data_root
@@ -204,6 +205,7 @@ class CLEVRDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.resolution = resolution
         self.with_masks = with_masks
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
         self.max_num_entries = 11
 
         print(
@@ -219,16 +221,22 @@ class CLEVRDataModule(pl.LightningDataModule):
             # [1]: https://github.com/deepmind/deepmind-research/blob/11c2ab53e8afd24afa8904f22fd81b699bfbce6e/iodine/modules/data.py#L191
             # In original tfrecords format, CLEVR (with masks) image shape is
             # (height, width, channels) = (240, 320, 3).
-            self.clevr_transforms = transforms.Compose(
+            current_transforms = [
+                # image has shape (H x W x C)
+                transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                # image has shape (C x H x W)
+            ]
+            if self.neg_1_to_pos_1_scale:
+                current_transforms.append(
+                    transforms.Lambda(rescale)
+                )  # rescale between -1 and 1
+            current_transforms.extend(
                 [
-                    # image has shape (H x W x C)
-                    transforms.ToTensor(),  # rescales to range [0.0, 1.0]
-                    # image has shape (C x H x W)
-                    transforms.Lambda(rescale),  # rescale between -1 and 1
                     transforms.Lambda(slightly_off_center_crop),
                     transforms.Resize(self.resolution),
                 ]
             )
+            self.clevr_transforms = transforms.Compose(current_transforms)
 
         if not self.mask_transforms:
 
@@ -301,6 +309,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
         ravens_transforms: Optional[Callable] = None,
         mask_transforms: Optional[Callable] = None,
         alternative_crop: bool = False,
+        neg_1_to_pos_1_scale: bool = True,
     ):
         super().__init__()
         self.data_root = data_root
@@ -312,6 +321,7 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.resolution = resolution
         self.alternative_crop = alternative_crop
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
         # There will be a maximum of 12 items in the segmentation mask: 8 items
         # on the table plus the background, table, robot, and robot arm.
         self.max_num_entries = 12
@@ -322,18 +332,24 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
 
         alt_crop_func = lambda img: img[:, 232:-10, 50:-50]
         if not self.ravens_transforms:
-            self.ravens_transforms = transforms.Compose(
+            current_transforms = [
+                # image has shape (H x W x C)
+                transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                # image has shape (C x H x W)
+            ]
+            if self.neg_1_to_pos_1_scale:
+                current_transforms.append(
+                    transforms.Lambda(rescale)
+                )  # rescale between -1 and 1
+            current_transforms.extend(
                 [
-                    # image has shape (H x W x C)
-                    transforms.ToTensor(),  # rescales to range [0.0, 1.0]
-                    # image has shape (C x H x W)
-                    transforms.Lambda(rescale),  # rescale between -1 and 1
                     transforms.Lambda(alt_crop_func)
                     if self.alternative_crop
                     else transforms.CenterCrop((480, 500)),
                     transforms.Resize(self.resolution),
                 ]
             )
+            self.ravens_transforms = transforms.Compose(current_transforms)
 
         if not self.mask_transforms:
 
@@ -405,8 +421,10 @@ class RAVENSRobotDataModule(pl.LightningDataModule):
 class Shapes3D(Dataset):
     # From https://github.com/singhgautam/slate/blob/6afe75211a79ef7327071ce198f4427928418bf5/shapes_3d.py
     # Download from https://console.cloud.google.com/storage/browser/3d-shapes (https://storage.googleapis.com/3d-shapes/3dshapes.h5)
-    def __init__(self, root, phase):
+    def __init__(self, root, phase, neg_1_to_pos_1_scale: bool = False):
         assert phase in ["train", "val", "test"]
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
+
         with h5py.File(root, "r") as f:
             if phase == "train":
                 self.imgs = f["images"][:400000]
@@ -421,6 +439,8 @@ class Shapes3D(Dataset):
         img = self.imgs[index]
         img = torch.from_numpy(img).permute(2, 0, 1)
         img = img.float() / 255.0
+        if self.neg_1_to_pos_1_scale:
+            img = rescale(img)
 
         return img
 
@@ -435,15 +455,23 @@ class Shapes3dDataModule(pl.LightningDataModule):
         train_batch_size: int,
         val_batch_size: int,
         num_workers: int,
+        neg_1_to_pos_1_scale: bool = False,
     ):
         super().__init__()
         self.data_root = data_root
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.num_workers = num_workers
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
 
-        self.train_dataset = Shapes3D(root=self.data_root, phase="train",)
-        self.val_dataset = Shapes3D(root=self.data_root, phase="val",)
+        self.train_dataset = Shapes3D(
+            root=self.data_root,
+            phase="train",
+            neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+        )
+        self.val_dataset = Shapes3D(
+            root=self.data_root, phase="val", neg_1_to_pos_1_scale=neg_1_to_pos_1_scale
+        )
 
     def train_dataloader(self):
         return DataLoader(
@@ -465,10 +493,12 @@ class Shapes3dDataModule(pl.LightningDataModule):
 
 
 class SketchyDataset(Dataset):
-    def __init__(self, data_dir, mode):
-        self.transforms = transforms.Compose(
-            [transforms.ToTensor(), transforms.Lambda(rescale)]
-        )
+    def __init__(self, data_dir, mode, neg_1_to_pos_1_scale: bool = True):
+        current_transforms = [transforms.ToTensor()]
+        if neg_1_to_pos_1_scale:
+            current_transforms.append(transforms.Lambda(rescale))
+        self.transforms = transforms.Compose(current_transforms)
+
         split_file = f"{data_dir}/processed/{mode}_images.txt"
         if os.path.exists(split_file):
             print(f"Reading paths for {mode} files...")
@@ -499,15 +529,25 @@ class SketchyDataModule(pl.LightningDataModule):
         train_batch_size: int,
         val_batch_size: int,
         num_workers: int,
+        neg_1_to_pos_1_scale: bool = True,
     ):
         super().__init__()
         self.data_root = data_root
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.num_workers = num_workers
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
 
-        self.train_dataset = SketchyDataset(data_dir=self.data_root, mode="train")
-        self.val_dataset = SketchyDataset(data_dir=self.data_root, mode="valid")
+        self.train_dataset = SketchyDataset(
+            data_dir=self.data_root,
+            mode="train",
+            neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+        )
+        self.val_dataset = SketchyDataset(
+            data_dir=self.data_root,
+            mode="valid",
+            neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+        )
 
     def train_dataloader(self):
         return DataLoader(
