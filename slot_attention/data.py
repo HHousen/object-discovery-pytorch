@@ -466,6 +466,9 @@ class Shapes3dDataModule(pl.LightningDataModule):
 
 class SketchyDataset(Dataset):
     def __init__(self, data_dir, mode):
+        self.transforms = transforms.Compose(
+            [transforms.ToTensor(), transforms.Lambda(rescale)]
+        )
         split_file = f"{data_dir}/processed/{mode}_images.txt"
         if os.path.exists(split_file):
             print(f"Reading paths for {mode} files...")
@@ -486,7 +489,7 @@ class SketchyDataset(Dataset):
     def __getitem__(self, idx):
         file = self.filenames[idx]
         img = Image.open(file)
-        return transforms.functional.to_tensor(img)
+        return self.transforms(img)
 
 
 class SketchyDataModule(pl.LightningDataModule):
