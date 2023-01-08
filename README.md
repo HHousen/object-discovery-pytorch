@@ -42,9 +42,12 @@ Select a dataset by changing the `dataset` parameter in [slot_attention/params.p
     - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [slot_attention/train.py](slot_attention/train.py) script.
     - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the `data_scripts/preprocess_clevr_with_masks.py` script, which takes approximately 2 hours to execute depending on your machine.
 3. [3D Shapes](https://github.com/deepmind/3d-shapes): [Official Google Cloud Bucket](https://console.cloud.google.com/storage/browser/3d-shapes)
-4. RAVENS Robot Data
+4. RAVENS Robot Data: [Official Train](https://drive.google.com/uc?export=download&id=1JxNgM2ubU4zJU_GjnoIOtqFKd-Mg_kzh) & [Official Test](https://drive.google.com/uc?export=download&id=1Zq77Ox5GiW3LZlBdVGgfrDuegcyZtzdW)
     - We generated a dataset similar in structure to CLEVR (with masks) but of robotic images using [RAVENS](https://github.com/google-research/ravens). Our modified version of RAVENS used to generate the dataset is [HHousen/ravens](https://github.com/HHousen/ravens).
     - The dataset contains 85,002 images split 70,002 train and 15K validation/test.
+5. Sketchy: Download and process by following directions in [applied-ai-lab/genesis](https://github.com/applied-ai-lab/genesis#sketchy) / [Download Our Processed Version](https://drive.google.com/uc?export=download&id=1VM2-8R9zuVnbre1jb9jzz6amO0T6dQVX)
+    - Dataset details are in the paper [Scaling data-driven robotics with reward sketching and batch reinforcement learning](https://arxiv.org/abs/1909.12200).
+
 
 ### Logging
 

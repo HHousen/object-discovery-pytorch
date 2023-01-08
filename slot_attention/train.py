@@ -6,6 +6,7 @@ from slot_attention.data import (
     CLEVRDataModule,
     Shapes3dDataModule,
     RAVENSRobotDataModule,
+    SketchyDataModule,
 )
 from slot_attention.method import SlotAttentionMethod
 from slot_attention.slot_attention_model import SlotAttentionModel
@@ -39,6 +40,10 @@ def main(params=None):
             resolution=params.resolution,
         )
     elif params.dataset == "shapes3d":
+        assert params.resolution == (
+            64,
+            64,
+        ), "shapes3d dataset requires 64x64 resolution"
         datamodule = Shapes3dDataModule(
             data_root=params.data_root,
             train_batch_size=params.batch_size,
@@ -58,6 +63,17 @@ def main(params=None):
             num_workers=params.num_workers,
             resolution=params.resolution,
             alternative_crop=params.alternative_crop,
+        )
+    elif params.dataset == "sketchy":
+        assert params.resolution == (
+            128,
+            128,
+        ), "sketchy dataset requires 128x128 resolution"
+        datamodule = SketchyDataModule(
+            data_root=params.data_root,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
         )
 
     print(

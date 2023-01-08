@@ -462,3 +462,64 @@ class Shapes3dDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True,
         )
+
+
+class SketchyDataset(Dataset):
+    def __init__(self, data_dir, mode):
+        split_file = f"{data_dir}/processed/{mode}_images.txt"
+        if os.path.exists(split_file):
+            print(f"Reading paths for {mode} files...")
+            with open(split_file, "r") as f:
+                self.filenames = f.readlines()
+            self.filenames = [item.strip() for item in self.filenames]
+        else:
+            print(f"Searching for {mode} files...")
+            self.filenames = glob(f"{data_dir}/processed/{mode}/ep*/ep*.png")
+            with open(split_file, "w") as f:
+                for item in self.filenames:
+                    f.write(f"{item}\n")
+        print(f"Found {len(self.filenames)}.")
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, idx):
+        file = self.filenames[idx]
+        img = Image.open(file)
+        return transforms.functional.to_tensor(img)
+
+
+class SketchyDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        data_root: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        num_workers: int,
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.num_workers = num_workers
+
+        self.train_dataset = SketchyDataset(data_dir=self.data_root, mode="train")
+        self.val_dataset = SketchyDataset(data_dir=self.data_root, mode="valid")
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )

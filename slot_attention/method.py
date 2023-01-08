@@ -226,7 +226,14 @@ class SlotAttentionMethod(pl.LightningModule):
             )
             return (
                 [optimizer],
-                [{"scheduler": scheduler, "interval": "step",}, {"scheduler": reduce_on_plateau, "interval": "epoch", "monitor": "validation/loss",}],
+                [
+                    {"scheduler": scheduler, "interval": "step",},
+                    {
+                        "scheduler": reduce_on_plateau,
+                        "interval": "epoch",
+                        "monitor": "validation/loss",
+                    },
+                ],
             )
 
         return (
