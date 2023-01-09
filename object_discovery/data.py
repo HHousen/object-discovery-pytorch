@@ -12,7 +12,7 @@ from torchvision import transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from slot_attention.utils import (
+from object_discovery.utils import (
     compact,
     rescale,
     slightly_off_center_crop,

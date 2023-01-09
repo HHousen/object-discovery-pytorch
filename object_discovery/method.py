@@ -7,9 +7,9 @@ import torch
 from torch import optim
 from torchvision import utils as vutils
 
-from slot_attention.slot_attention_model import SlotAttentionModel
-from slot_attention.slate_model import SLATE
-from slot_attention.utils import (
+from object_discovery.slot_attention_model import SlotAttentionModel
+from object_discovery.slate_model import SLATE
+from object_discovery.utils import (
     to_rgb_from_tensor,
     warm_and_decay_lr_scheduler,
     cosine_anneal,
@@ -17,7 +17,7 @@ from slot_attention.utils import (
     visualize,
     compute_ari,
 )
-from slot_attention.gnm.logging import gnm_log_validation_outputs
+from object_discovery.gnm.logging import gnm_log_validation_outputs
 
 
 class SlotAttentionMethod(pl.LightningModule):

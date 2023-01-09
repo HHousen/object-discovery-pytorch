@@ -2,26 +2,25 @@ import pytorch_lightning.loggers as pl_loggers
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 
-from slot_attention.data import (
+from object_discovery.data import (
     CLEVRDataModule,
     Shapes3dDataModule,
     RAVENSRobotDataModule,
     SketchyDataModule,
 )
-from slot_attention.method import SlotAttentionMethod
-from slot_attention.slot_attention_model import SlotAttentionModel
-from slot_attention.slate_model import SLATE
-from slot_attention.params import (
+from object_discovery.method import SlotAttentionMethod
+from object_discovery.slot_attention_model import SlotAttentionModel
+from object_discovery.slate_model import SLATE
+from object_discovery.params import (
     merge_namespaces,
     training_params,
     slot_attention_params,
     slate_params,
     gnm_params,
 )
-from slot_attention.utils import ImageLogCallback
-from slot_attention.gnm.gnm_model import GNM
-from slot_attention.gnm.gnm_model import hyperparam_anneal
-from slot_attention.gnm.config import get_arrow_args
+from object_discovery.utils import ImageLogCallback
+from object_discovery.gnm.gnm_model import GNM, hyperparam_anneal
+from object_discovery.gnm.config import get_arrow_args
 
 
 def main(params=None):

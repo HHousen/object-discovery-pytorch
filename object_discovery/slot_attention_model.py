@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from slot_attention.utils import (
+from object_discovery.utils import (
     assert_shape,
     build_grid,
     conv_transpose_out_shape,

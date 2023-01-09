@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from slot_attention.utils import linear
-from slot_attention.transformer import PositionalEncoding, TransformerDecoder
+from object_discovery.utils import linear
+from object_discovery.transformer import PositionalEncoding, TransformerDecoder
 
-from slot_attention.slot_attention_model import SlotAttention
-
-# from slot_attention.slot_attn import SlotAttention
+from object_discovery.slot_attention_model import SlotAttention
 
 
 def conv2d(

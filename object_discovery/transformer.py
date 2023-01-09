@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from slot_attention.utils import linear
+from object_discovery.utils import linear
 
 
 class MultiHeadAttention(nn.Module):

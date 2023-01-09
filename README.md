@@ -1,6 +1,6 @@
 # Object Discovery PyTorch
 
-> This is an implementation of several object discovery models (Slot Attention, SLATE, GNM) in PyTorch.
+> This is an implementation of several unsupervised object discovery models (Slot Attention, SLATE, GNM) in PyTorch.
 
 [![GitHub license](https://img.shields.io/github/license/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/pull/)
 
@@ -23,14 +23,14 @@ The initial code for this repo was forked from [untitled-ai/slot_attention](http
 1. Clone the repo: `git clone https://github.com/HHousen/slot-attention-pytorch/ && cd slot-attention-pytorch`.
 2. Install requirements and activate environment: `poetry install` then `poetry shell`.
 3. Download the [CLEVR (with masks)](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO) dataset (or the original [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/) dataset by running `./download_clevr.sh /tmp/CLEVR`). More details about the datasets are below.
-4. Modify the hyperparameters in [slot_attention/params.py](slot_attention/params.py) to fit your needs. Make sure to change `data_root` to the location of your dataset.
+4. Modify the hyperparameters in [object_discovery/params.py](object_discovery/params.py) to fit your needs. Make sure to change `data_root` to the location of your dataset.
 5. Train a model: `python -m slot_attention.train`.
 
 ## Usage
 
 Train a model by running `python -m slot_attention.train`.
 
-Hyperparameters can be changed in [slot_attention/params.py](slot_attention/params.py). `training_params` has global parameters that apply to all model types. These parameters can be overridden if the same key is present in `slot_attention_params` or `slate_params`. Change the global parameter `model_type` to `sa` to use Slot Attention (`SlotAttentionModel` in slot_attention_model.py) or `slate` to use SLATE (`SLATE` in slate_model.py). This will determine which model's set of parameters will be merged with `training_params`.
+Hyperparameters can be changed in [object_discovery/params.py](object_discovery/params.py). `training_params` has global parameters that apply to all model types. These parameters can be overridden if the same key is present in `slot_attention_params` or `slate_params`. Change the global parameter `model_type` to `sa` to use Slot Attention (`SlotAttentionModel` in slot_attention_model.py) or `slate` to use SLATE (`SLATE` in slate_model.py). This will determine which model's set of parameters will be merged with `training_params`.
 
 ### Models
 
@@ -42,12 +42,12 @@ Our implementations are based on several open-source repositories.
 
 ### Datasets
 
-Select a dataset by changing the `dataset` parameter in [slot_attention/params.py](slot_attention/params.py) to the name of the dataset: `clevr`, `shapes3d`, or `ravens`. Then, set the `data_root` parameter to the location of the data. The code for loading supported datasets is in [slot_attention/data.py](slot_attention/data.py).
+Select a dataset by changing the `dataset` parameter in [object_discovery/params.py](object_discovery/params.py) to the name of the dataset: `clevr`, `shapes3d`, or `ravens`. Then, set the `data_root` parameter to the location of the data. The code for loading supported datasets is in [object_discovery/data.py](object_discovery/data.py).
 
 1. [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/): Download by executing [download_clevr.sh](./download_clevr.sh).
 2. [CLEVR (with masks)](https://github.com/deepmind/multi_object_datasets#clevr-with-masks): [Original TFRecords Download](https://console.cloud.google.com/storage/browser/multi-object-datasets/clevr_with_masks) / [Our HDF5 PyTorch Version](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO).
     - This dataset is a regenerated version of CLEVR but with ground-truth segmentation masks. This enables the training script to calculate Adjusted Rand Index (ARI) during validation runs.
-    - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [slot_attention/train.py](slot_attention/train.py) script.
+    - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [object_discovery/train.py](object_discovery/train.py) script.
     - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the `data_scripts/preprocess_clevr_with_masks.py` script, which takes approximately 2 hours to execute depending on your machine.
 3. [3D Shapes](https://github.com/deepmind/3d-shapes): [Official Google Cloud Bucket](https://console.cloud.google.com/storage/browser/3d-shapes)
 4. RAVENS Robot Data: [Official Train](https://drive.google.com/uc?export=download&id=1JxNgM2ubU4zJU_GjnoIOtqFKd-Mg_kzh) & [Official Test](https://drive.google.com/uc?export=download&id=1Zq77Ox5GiW3LZlBdVGgfrDuegcyZtzdW)
@@ -61,7 +61,7 @@ Select a dataset by changing the `dataset` parameter in [slot_attention/params.p
 
 To log outputs to [wandb](https://wandb.ai/home), run `wandb login YOUR_API_KEY` and set `is_logging_enabled=True` in `SlotAttentionParams`.
 
-If you use a dataset with ground-truth segmentation masks, then the Adjusted Rand Index (ARI), a clustering similarity score, will be logged for each validation loop. We convert the implementation from [deepmind/multi_object_datasets](https://github.com/deepmind/multi_object_datasets) to PyTorch in [slot_attention/segmentation_metrics.py](slot_attention/segmentation_metrics.py).
+If you use a dataset with ground-truth segmentation masks, then the Adjusted Rand Index (ARI), a clustering similarity score, will be logged for each validation loop. We convert the implementation from [deepmind/multi_object_datasets](https://github.com/deepmind/multi_object_datasets) to PyTorch in [object_discovery/segmentation_metrics.py](object_discovery/segmentation_metrics.py).
 
 ## References
 

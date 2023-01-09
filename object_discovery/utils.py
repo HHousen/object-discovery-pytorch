@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from pytorch_lightning import Callback
-from slot_attention.segmentation_metrics import adjusted_rand_index
+from object_discovery.segmentation_metrics import adjusted_rand_index
 
 import wandb
 
