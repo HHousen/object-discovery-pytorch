@@ -2,11 +2,12 @@
 
 import torch
 import torch.nn.functional as F
-from .metrics import align_masks_iou, dices, ari, ari2
+from .metrics import align_masks_iou, dices
 import itertools
 
 import torch
 import torchvision as tv
+from ..segmentation_metrics import adjusted_rand_index
 
 from matplotlib.colors import ListedColormap
 from matplotlib.cm import get_cmap
@@ -168,6 +169,8 @@ def gnm_log_validation_outputs(batch, batch_idx, output, is_global_zero):
         pred_masks = output["steps"]["mask"]
         pred_vis = output["steps"]["z_pres"].squeeze(-1)
 
+        # `align_masks_iou` adds the background pixels to `ali_pmasks` (aligned
+        # predicted masks).
         ali_pmasks, ali_tmasks, ious, ali_pvis, ali_tvis = align_masks_iou(
             pred_masks, masks, pred_mask_vis=pred_vis, true_mask_vis=vis, has_bg=False
         )
@@ -194,18 +197,59 @@ def gnm_log_validation_outputs(batch, batch_idx, output, is_global_zero):
         mdice = dice[:, 1:].sum(-1) / num_paired_slots
         logs["dice"] = mdice
 
-        aris = ari(ali_pmasks, ali_tmasks)
-        logs["ari"] = aris
+        # aris = ari(ali_pmasks, ali_tmasks)
+        batch_size, num_entries, channels, height, width = ali_tmasks.shape
+        ali_tmasks_reshaped = (
+            torch.reshape(
+                ali_tmasks.squeeze(), [batch_size, num_entries, height * width]
+            )
+            .permute([0, 2, 1])
+            .to(torch.float)
+        )
+        batch_size, num_entries, channels, height, width = ali_pmasks.shape
+        ali_pmasks_reshaped = (
+            torch.reshape(
+                ali_pmasks.squeeze(), [batch_size, num_entries, height * width]
+            )
+            .permute([0, 2, 1])
+            .to(torch.float)
+        )
+        logs["ari_with_background"] = adjusted_rand_index(
+            ali_tmasks_reshaped, ali_pmasks_reshaped
+        )
 
-        aris_fg = ari(ali_pmasks, ali_tmasks, True).mean().detach()
-        logs["ari_fg"] = aris_fg
+        # aris_fg = ari(ali_pmasks, ali_tmasks, True).mean().detach()
+        # `[..., 1:]` removes the background pixels group from the true mask.
+        logs["ari"] = adjusted_rand_index(
+            ali_tmasks_reshaped[..., 1:], ali_pmasks_reshaped
+        )
 
-        pred_masks_wbg = torch.cat([1 - pred_masks.sum(1, keepdim=True), pred_masks], 1)
+        # Can also calculate ari (same as above line) without using the aligned
+        # masks by directly adding the background to the predicted masks. The
+        # background is everything that is not predicted as an object. This is
+        # done automatically when aligning the masks in `align_masks_iou`.
+        # pred_masks_with_background = torch.cat([1 - pred_masks.sum(1, keepdim=True), pred_masks], 1)
+        # batch_size, num_entries, channels, height, width = masks.shape
+        # masks_reshaped = torch.reshape(masks, [batch_size, num_entries, height * width]).permute([0, 2, 1]).to(torch.float)
+        # batch_size, num_entries, channels, height, width = pred_masks_with_background.shape
+        # pred_masks_with_background_reshaped = torch.reshape(pred_masks_with_background, [batch_size, num_entries, height * width]).permute([0, 2, 1]).to(torch.float)
+        # logs["ari4"] = adjusted_rand_index(masks_reshaped[..., 1:], pred_masks_with_background_reshaped)
 
-        ari_2 = ari2(pred_masks_wbg, masks.to(torch.float))
-        ari_2fg = ari2(pred_masks_wbg, masks.to(torch.float), True)
-        logs["ari2"] = ari_2
-        logs["ari2_fg"] = ari_2fg
+        batch_size, num_entries, channels, height, width = masks.shape
+        masks_reshaped = (
+            torch.reshape(masks, [batch_size, num_entries, height * width])
+            .permute([0, 2, 1])
+            .to(torch.float)
+        )
+        batch_size, num_entries, channels, height, width = pred_masks.shape
+        pred_masks_reshaped = (
+            torch.reshape(pred_masks, [batch_size, num_entries, height * width])
+            .permute([0, 2, 1])
+            .to(torch.float)
+        )
+        logs["ari_no_background"] = adjusted_rand_index(
+            masks_reshaped[..., 1:], pred_masks_reshaped
+        )
 
     pred_counts = output["counts"].detach().to(torch.int)
     logs["acc"] = (pred_counts == cnts).to(float)

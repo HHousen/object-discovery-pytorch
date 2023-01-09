@@ -1,10 +1,7 @@
 import torch
 from torch.nn.functional import one_hot
 
-import numpy as np
-
 from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import adjusted_rand_score
 
 
 def binarise_masks(pred_masks, num_classes=None):
@@ -182,37 +179,19 @@ def dices(pred_mask, true_mask):
     return dice
 
 
-def ari(pred_mask, true_mask, skip_0=False):
-    B = pred_mask.shape[0]
-    pm = pred_mask.to(int).argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
-    tm = true_mask.to(int).argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
-    aris = []
-    for bi in range(B):
-        t = tm[bi]
-        p = pm[bi]
-        if skip_0:
-            p = p[t > 0]
-            t = t[t > 0]
-        ari_score = adjusted_rand_score(t, p)
-        aris.append(ari_score)
-    aris = torch.tensor(np.array(aris), device=pred_mask.device)
-    # if torch.any(torch.isnan(aris)) or torch.any(torch.isinf(aris)): import ipdb; ipdb.set_trace()
-    return aris
-
-
-def ari2(pred_mask, true_mask, skip_0=False):
-    B = pred_mask.shape[0]
-    pm = pred_mask.argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
-    tm = true_mask.argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
-    aris = []
-    for bi in range(B):
-        t = tm[bi]
-        p = pm[bi]
-        if skip_0:
-            p = p[t > 0]
-            t = t[t > 0]
-        ari_score = adjusted_rand_score(t, p)
-        aris.append(ari_score)
-    aris = torch.tensor(np.array(aris), device=pred_mask.device)
-    # if torch.any(torch.isnan(aris)) or torch.any(torch.isinf(aris)): import ipdb; ipdb.set_trace()
-    return aris
+# def ari(pred_mask, true_mask, skip_0=False):
+#     B = pred_mask.shape[0]
+#     pm = pred_mask.to(int).argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
+#     tm = true_mask.to(int).argmax(axis=1).squeeze().view(B, -1).cpu().detach().numpy()
+#     aris = []
+#     for bi in range(B):
+#         t = tm[bi]
+#         p = pm[bi]
+#         if skip_0:
+#             p = p[t > 0]
+#             t = t[t > 0]
+#         ari_score = adjusted_rand_score(t, p)
+#         aris.append(ari_score)
+#     aris = torch.tensor(np.array(aris), device=pred_mask.device)
+#     # if torch.any(torch.isnan(aris)) or torch.any(torch.isinf(aris)): import ipdb; ipdb.set_trace()
+#     return aris
