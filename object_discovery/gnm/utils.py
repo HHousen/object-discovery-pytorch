@@ -17,21 +17,9 @@ gbox[1, :, :border_width] = 1
 gbox[1, :, -border_width:] = 1
 gbox = gbox.view(1, 3, 42, 42)
 
-wbox = torch.zeros(3, 42, 42)
-wbox[:, :border_width, :] = 1
-wbox[:, -border_width:, :] = 1
-wbox[:, :, :border_width] = 1
-wbox[:, :, -border_width:] = 1
-wbox = wbox.view(1, 3, 42, 42)
-
 
 def visualize(
-    x,
-    z_pres,
-    z_where_scale,
-    z_where_shift,
-    only_bbox=False,
-    phase_only_display_pres=True,
+    x, z_pres, z_where_scale, z_where_shift,
 ):
     """
         x: (bs, 3, img_h, img_w)
@@ -39,30 +27,21 @@ def visualize(
         z_where_scale: (bs, 4, 4, 2)
         z_where_shift: (bs, 4, 4, 2)
     """
+    global gbox, rbox
     bs, _, img_h, img_w = x.size()
     z_pres = z_pres.view(-1, 1, 1, 1)
     num_obj = z_pres.size(0) // bs
     z_scale = z_where_scale.view(-1, 2)
     z_shift = z_where_shift.view(-1, 2)
-    if phase_only_display_pres:
-        bbox = spatial_transform(
-            z_pres * gbox,
-            torch.cat((z_scale, z_shift), dim=1),
-            torch.Size([bs * num_obj, 3, img_h, img_w]),
-            inverse=True,
-        )
-    else:
-        bbox = spatial_transform(
-            z_pres * gbox + (1 - z_pres) * rbox,
-            torch.cat((z_scale, z_shift), dim=1),
-            torch.Size([bs * num_obj, 3, img_h, img_w]),
-            inverse=True,
-        )
+    gbox = gbox.to(z_pres.device)
+    rbox = rbox.to(z_pres.device)
+    bbox = spatial_transform(
+        z_pres * gbox + (1 - z_pres) * rbox,
+        torch.cat((z_scale, z_shift), dim=1),
+        torch.Size([bs * num_obj, 3, img_h, img_w]),
+        inverse=True,
+    )
 
-    if not only_bbox:
-        bbox = (
-            bbox + torch.stack(num_obj * (x,), dim=1).view(-1, 3, img_h, img_w)
-        ).clamp(0.0, 1.0)
     return bbox
 
 

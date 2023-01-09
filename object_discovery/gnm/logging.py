@@ -41,7 +41,7 @@ CMAPSPEC = ListedColormap(
 def _to_img(img, lim=None, dim=-3):
     if lim:
         img = img[:lim]
-    img = (img.clamp(0, 1) * 255).to(torch.uint8).cpu().detach()
+    img = (img.clamp(0, 1) * 255).to(torch.uint8)
     if img.shape[dim] < 3:
         epd_dims = [-1 for _ in range(len(img.shape))]
         epd_dims[dim] = 3
@@ -82,46 +82,21 @@ def log_recons(input, output, patches, masks, background=None, pres=None):
         else:
             m_hat.extend(m)
         vis_imgs.extend(m_hat)
-    grid = (
-        tv.utils.make_grid(vis_imgs, pad_value=128, nrow=len(img), padding=1)
-        .detach()
-        .cpu()
-    )
-    return grid.permute([1, 2, 0]).numpy()
+    grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=len(img), padding=1)
+    return grid.permute([1, 2, 0]).cpu().numpy()
 
 
 @torch.no_grad()
-def log_images(input, output, bboxes=None, pres=None):
+def log_images(input, output):
     vis_imgs = []
     img = _to_img(input)
     omg = _to_img(output, lim=len(img))
 
-    if bboxes is not None:
-        bboxes = bboxes.detach().cpu()
-        pres = pres.detach().cpu()
-        for i, (i_img, o_img) in enumerate(zip(img, omg)):
-            vis_imgs.append(i_img)
-            img_bbox = []
-            for si in range(len(bboxes[i])):
-                if pres[i, si] == 1:
-                    img_bbox.append(bboxes[i, si])
-            if img_bbox:
-                img_to_draw = Image.fromarray(o_img.permute(1, 2, 0).numpy())
-                draw = ImageDraw.Draw(img_to_draw)
-
-                for bi, bbox in enumerate(img_bbox):
-                    draw.rectangle(
-                        bbox.to(torch.int64).tolist(), width=1, outline="green"
-                    )
-                o_img = torch.from_numpy(np.array(img_to_draw)).permute(2, 0, 1)
-
-            vis_imgs.append(o_img)
-    else:
-        for i, (i_img, o_img) in enumerate(zip(img, omg)):
-            vis_imgs.append(i_img)
-            vis_imgs.append(o_img)
-    grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=16).detach().cpu()
-    return grid.permute([1, 2, 0]).numpy()
+    for i, (i_img, o_img) in enumerate(zip(img, omg)):
+        vis_imgs.append(i_img)
+        vis_imgs.append(o_img)
+    grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=16)
+    return grid.permute([1, 2, 0]).cpu().numpy()
 
 
 @torch.no_grad()
@@ -134,15 +109,15 @@ def log_semantic_images(input, output, true_masks, pred_masks):
     tms = (_cmap_tensor(true_masks) * 255.0).to(torch.uint8)
     pms = (_cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
     vis_imgs = list(itertools.chain.from_iterable(zip(img, omg, tms, pms)))
-    grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=16).detach().cpu()
-    return grid.permute([1, 2, 0]).numpy()
+    grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=16)
+    return grid.permute([1, 2, 0]).cpu().numpy()
 
 
 @torch.no_grad()
 def _cmap_tensor(t):
-    t_hw = t.cpu().detach().numpy()
+    t_hw = t.cpu().numpy()
     o_hwc = CMAPSPEC(t_hw)[..., :3]  # drop alpha
-    o = torch.from_numpy(o_hwc).transpose(-1, -2).transpose(-2, -3)
+    o = torch.from_numpy(o_hwc).transpose(-1, -2).transpose(-2, -3).to(t.device)
     return o
 
 

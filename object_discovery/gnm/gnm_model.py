@@ -98,7 +98,7 @@ class GNM(nn.Module):
     def aux_p_where(self):
         return dist.Normal(self.aux_p_where_mean, self.aux_p_where_std)
 
-    def forward(self, x: torch.Tensor, global_step) -> Tuple:
+    def forward(self, x: torch.Tensor, global_step, generate_bbox=False):
         self.args = hyperparam_anneal(self.args, global_step)
         bs = x.size(0)
 
@@ -418,32 +418,23 @@ class GNM(nn.Module):
         elbo = recon_loss - kl
         loss = -elbo
 
-        bbox = visualize(
-            x.cpu(),
-            self.log["z_pres"]
-            .view(bs, self.args.arch.num_cell ** 2, -1)
-            .cpu()
-            .detach(),
-            self.log["z_where_scale"]
-            .view(bs, self.args.arch.num_cell ** 2, -1)
-            .cpu()
-            .detach(),
-            self.log["z_where_shift"]
-            .view(bs, self.args.arch.num_cell ** 2, -1)
-            .cpu()
-            .detach(),
-            only_bbox=True,
-            phase_only_display_pres=False,
-        )
+        bbox = None
+        if (not self.training) and generate_bbox:
+            bbox = visualize(
+                x,
+                self.log["z_pres"].view(bs, self.args.arch.num_cell ** 2, -1),
+                self.log["z_where_scale"].view(bs, self.args.arch.num_cell ** 2, -1),
+                self.log["z_where_shift"].view(bs, self.args.arch.num_cell ** 2, -1),
+            )
 
-        bbox = (
-            bbox.view(x.shape[0], -1, 3, self.args.data.img_h, self.args.data.img_w)
-            .sum(1)
-            .clamp(0.0, 1.0)
-        )
-        # bbox_img = x.cpu().expand(-1, 3, -1, -1).contiguous()
-        # bbox_img[bbox.sum(dim=1, keepdim=True).expand(-1, 3, -1, -1) > 0.5] = \
-        #     bbox[bbox.sum(dim=1, keepdim=True).expand(-1, 3, -1, -1) > 0.5]
+            bbox = (
+                bbox.view(x.shape[0], -1, 3, self.args.data.img_h, self.args.data.img_w)
+                .sum(1)
+                .clamp(0.0, 1.0)
+            )
+            # bbox_img = x.cpu().expand(-1, 3, -1, -1).contiguous()
+            # bbox_img[bbox.sum(dim=1, keepdim=True).expand(-1, 3, -1, -1) > 0.5] = \
+            #     bbox[bbox.sum(dim=1, keepdim=True).expand(-1, 3, -1, -1) > 0.5]
         ret = {
             "canvas": canvas,
             "canvas_with_bbox": bbox,
@@ -1016,8 +1007,8 @@ class GNM(nn.Module):
 
         return y, y_nobg, alpha_map, o_att_full_res, a_att_hat_full_res
 
-    def loss_function(self, x, global_step):
-        return self.forward(x, global_step)
+    def loss_function(self, x, global_step, generate_bbox=False):
+        return self.forward(x, global_step, generate_bbox)
 
 
 def hyperparam_anneal(args, global_step):

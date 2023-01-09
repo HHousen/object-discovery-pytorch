@@ -121,7 +121,9 @@ class SlotAttentionMethod(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         if self.params.model_type == "gnm":
-            output = self.model.loss_function(batch[0], self.trainer.global_step)
+            output = self.model.loss_function(
+                batch[0], self.trainer.global_step, generate_bbox=batch_idx == 0
+            )
             loss, images = gnm_log_validation_outputs(
                 batch, batch_idx, output, self.trainer.is_global_zero
             )
