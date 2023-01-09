@@ -1,6 +1,6 @@
-# Slot Attention PyTorch
+# Object Discovery PyTorch
 
-> This is an implementation of Slot Attention (["Object-Centric Learning with Slot Attention"](https://arxiv.org/abs/2006.15055)) and SLATE (["Illiterate DALL-E Learns to Compose"](https://arxiv.org/abs/2110.11405)) in PyTorch.
+> This is an implementation of several object discovery models (Slot Attention, SLATE, GNM) in PyTorch.
 
 [![GitHub license](https://img.shields.io/github/license/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/pull/)
 
@@ -31,6 +31,14 @@ The initial code for this repo was forked from [untitled-ai/slot_attention](http
 Train a model by running `python -m slot_attention.train`.
 
 Hyperparameters can be changed in [slot_attention/params.py](slot_attention/params.py). `training_params` has global parameters that apply to all model types. These parameters can be overridden if the same key is present in `slot_attention_params` or `slate_params`. Change the global parameter `model_type` to `sa` to use Slot Attention (`SlotAttentionModel` in slot_attention_model.py) or `slate` to use SLATE (`SLATE` in slate_model.py). This will determine which model's set of parameters will be merged with `training_params`.
+
+### Models
+
+Our implementations are based on several open-source repositories.
+
+1. Slot Attention (["Object-Centric Learning with Slot Attention"](https://arxiv.org/abs/2006.15055)): [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention) & [Official](https://github.com/google-research/google-research/tree/master/slot_attention)
+2. SLATE (["Illiterate DALL-E Learns to Compose"](https://arxiv.org/abs/2110.11405)): [Official](https://github.com/singhgautam/slate)
+3. GNM (["Generative Neurosymbolic Machines"](https://arxiv.org/abs/2010.12152)): [karazijal/clevrtex](https://github.com/karazijal/clevrtex) & [Official](https://github.com/JindongJiang/GNM)
 
 ### Datasets
 

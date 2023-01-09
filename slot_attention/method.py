@@ -2,6 +2,7 @@ from argparse import Namespace
 from typing import Union
 from functools import partial
 import pytorch_lightning as pl
+import wandb
 import torch
 from torch import optim
 from torchvision import utils as vutils
@@ -16,6 +17,7 @@ from slot_attention.utils import (
     visualize,
     compute_ari,
 )
+from slot_attention.gnm.logging import gnm_log_validation_outputs
 
 
 class SlotAttentionMethod(pl.LightningModule):
@@ -47,6 +49,20 @@ class SlotAttentionMethod(pl.LightningModule):
             loss = self.model.loss_function(batch, self.tau, self.params.hard)
         elif self.params.model_type == "sa":
             loss, mask = self.model.loss_function(batch)
+        elif self.params.model_type == "gnm":
+            output = self.model.loss_function(batch, self.trainer.global_step)
+            loss = {
+                "loss": output["loss"],
+                "elbo": output["elbo"],
+                "kl": output["kl"],
+                "loss_comp_ratio": output["rec_loss"] / output["kl"],
+            }
+            for k in output:
+                if k.startswith("kl_") or k.endswith("_loss"):
+                    val = output[k]
+                    if isinstance(val, torch.Tensor):
+                        val = val.mean()
+                    loss[k] = val
 
         return loss, mask
 
@@ -104,7 +120,16 @@ class SlotAttentionMethod(pl.LightningModule):
         return images
 
     def validation_step(self, batch, batch_idx):
-        if type(batch) == list and self.model.supports_masks:
+        if self.params.model_type == "gnm":
+            output = self.model.loss_function(batch[0], self.trainer.global_step)
+            loss, images = gnm_log_validation_outputs(
+                batch, batch_idx, output, self.trainer.is_global_zero
+            )
+            for key, image in images.items():
+                self.logger.experiment.log(
+                    {f"validation/{key}": [wandb.Image(image)]}, commit=False
+                )
+        elif type(batch) == list and self.model.supports_masks:
             loss, predicted_mask = self.step(batch[0])
             predicted_mask = torch.permute(predicted_mask, [0, 3, 4, 2, 1])
             # `predicted_mask` has shape [batch_size, height, width, channels, num_entries]
@@ -125,12 +150,11 @@ class SlotAttentionMethod(pl.LightningModule):
                 self.datamodule.max_num_entries,
             )
             loss["ari"] = ari
-            return loss
         else:
             if type(batch) == list:
                 batch = batch[0]
             loss, _ = self.step(batch)
-            return loss
+        return loss
 
     def validation_epoch_end(self, outputs):
         logs = {
@@ -187,9 +211,16 @@ class SlotAttentionMethod(pl.LightningModule):
                 lr=self.params.lr_main,
                 weight_decay=self.params.weight_decay,
             )
+        elif self.params.model_type == "gnm":
+            optimizer = optim.RMSprop(
+                self.model.parameters(),
+                lr=self.params.lr_main,
+                weight_decay=self.params.weight_decay,
+            )
 
         total_steps = self.num_training_steps()
 
+        scheduler_lambda = None
         if self.params.scheduler == "warmup_and_decay":
             warmup_steps_pct = self.params.warmup_steps_pct
             decay_steps_pct = self.params.decay_steps_pct
@@ -209,34 +240,36 @@ class SlotAttentionMethod(pl.LightningModule):
                 final_step=self.params.lr_warmup_steps,
             )
 
-        if self.params.model_type == "slate":
-            lr_lambda = [lambda o: 1, scheduler_lambda]
-        elif self.params.model_type == "sa":
-            lr_lambda = scheduler_lambda
-        scheduler = optim.lr_scheduler.LambdaLR(
-            optimizer=optimizer, lr_lambda=lr_lambda
-        )
-
-        if self.params.model_type == "slate" and hasattr(self.params, "patience"):
-            reduce_on_plateau = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer=optimizer,
-                mode="min",
-                factor=0.5,
-                patience=self.params.patience,
+        if scheduler_lambda is not None:
+            if self.params.model_type == "slate":
+                lr_lambda = [lambda o: 1, scheduler_lambda]
+            elif self.params.model_type in ["sa", "gnm"]:
+                lr_lambda = scheduler_lambda
+            scheduler = optim.lr_scheduler.LambdaLR(
+                optimizer=optimizer, lr_lambda=lr_lambda
             )
+
+            if self.params.model_type == "slate" and hasattr(self.params, "patience"):
+                reduce_on_plateau = optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer=optimizer,
+                    mode="min",
+                    factor=0.5,
+                    patience=self.params.patience,
+                )
+                return (
+                    [optimizer],
+                    [
+                        {"scheduler": scheduler, "interval": "step",},
+                        {
+                            "scheduler": reduce_on_plateau,
+                            "interval": "epoch",
+                            "monitor": "validation/loss",
+                        },
+                    ],
+                )
+
             return (
                 [optimizer],
-                [
-                    {"scheduler": scheduler, "interval": "step",},
-                    {
-                        "scheduler": reduce_on_plateau,
-                        "interval": "epoch",
-                        "monitor": "validation/loss",
-                    },
-                ],
+                [{"scheduler": scheduler, "interval": "step",}],
             )
-
-        return (
-            [optimizer],
-            [{"scheduler": scheduler, "interval": "step",}],
-        )
+        return optimizer

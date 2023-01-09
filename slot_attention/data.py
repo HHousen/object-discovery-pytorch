@@ -121,7 +121,8 @@ class CLEVRWithMasksDataset(Dataset):
             return self.clevr_transforms(img)
         else:
             mask = self.data["mask"][index_to_load]
-            return self.clevr_transforms(img), self.mask_transforms(mask)
+            vis = self.data["visibility"][index_to_load]
+            return self.clevr_transforms(img), self.mask_transforms(mask), vis
 
     def __len__(self):
         return len(self.indices if self.max_n_objects else self.data["image"])

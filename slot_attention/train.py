@@ -16,8 +16,12 @@ from slot_attention.params import (
     training_params,
     slot_attention_params,
     slate_params,
+    gnm_params,
 )
 from slot_attention.utils import ImageLogCallback
+from slot_attention.gnm.gnm_model import GNM
+from slot_attention.gnm.gnm_model import hyperparam_anneal
+from slot_attention.gnm.config import get_arrow_args
 
 
 def main(params=None):
@@ -27,6 +31,8 @@ def main(params=None):
             params = merge_namespaces(params, slate_params)
         elif params.model_type == "sa":
             params = merge_namespaces(params, slot_attention_params)
+        elif params.model_type == "gnm":
+            params = merge_namespaces(params, gnm_params)
 
     assert params.num_slots > 1, "Must have at least 2 slots."
     params.neg_1_to_pos_1_scale = params.model_type == "sa"
@@ -106,10 +112,22 @@ def main(params=None):
             dropout=params.dropout,
             num_dec_blocks=params.num_dec_blocks,
         )
+    elif params.model_type == "gnm":
+        model_params = get_arrow_args()
+        model_params = hyperparam_anneal(model_params, 0)
+        params = merge_namespaces(params, model_params)
+        params.const.likelihood_sigma = params.std
+        params.z.z_what_dim = params.z_what_dim
+        params.z.z_bg_dim = params.z_bg_dim
+        model = GNM(params)
 
     method = SlotAttentionMethod(model=model, datamodule=datamodule, params=params)
 
     logger = pl_loggers.WandbLogger(project="slot-attention-clevr6")
+
+    callbacks = [LearningRateMonitor("step")]
+    if params.model_type != "gnm":
+        callbacks.append(ImageLogCallback())
 
     trainer = Trainer(
         logger=logger if params.is_logger_enabled else False,
@@ -121,9 +139,7 @@ def main(params=None):
         accumulate_grad_batches=params.accumulate_grad_batches,
         gradient_clip_val=params.gradient_clip_val,
         log_every_n_steps=50,
-        callbacks=[LearningRateMonitor("step"), ImageLogCallback(),]
-        if params.is_logger_enabled
-        else [],
+        callbacks=callbacks if params.is_logger_enabled else [],
     )
     trainer.fit(method, datamodule=datamodule)
 

@@ -60,6 +60,21 @@ slate_params = Namespace(
     hard=False,
 )
 
+gnm_params = Namespace(
+    std=0.5,
+    z_what_dim=64,
+    z_bg_dim=10,
+    lr_main=1e-4,
+    batch_size=64,
+    val_batch_size=64,
+    resolution=(128, 128),
+    gradient_clip_val=1.0,
+    max_epochs=1000,
+    max_steps=5_000_000,
+    weight_decay=0.0,
+    scheduler=None,
+)
+
 
 def merge_namespaces(one: Namespace, two: Namespace):
     return Namespace(**{**vars(one), **vars(two)})

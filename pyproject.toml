@@ -5,7 +5,7 @@ description = "PyTorch implementation of \"Object-Centric Learning with Slot Att
 authors = ["Bryden Fogelman <bryden1995@gmail.com>", "Hayden Housen <hayden@haydenhousen.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.12"
 torch = "^1.13.1"
 torchvision = "^0.14.1"
 wandb = "^0.13.7"
@@ -13,6 +13,9 @@ Pillow = "^9.3.0"
 pytorch-lightning = "^1.8.6"
 numpy = "^1.24.1"
 h5py = "^3.7.0"
+scipy = "^1.10.0"
+scikit-learn = "^1.2.0"
+matplotlib = "^3.6.2"
 
 [tool.poetry.dev-dependencies]
 
