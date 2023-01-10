@@ -789,7 +789,8 @@ class ClevrTexDataset(Dataset):
         # `msk` has shape [height, width, channel, max_num_entries]
         msk = msk.permute([3, 0, 1, 2])
         # `msk` has shape [max_num_entries, height, width, channel]
-
+        if self.split == "train":
+            return img
         return img, msk
 
 
