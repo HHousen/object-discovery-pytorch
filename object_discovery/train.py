@@ -7,6 +7,7 @@ from object_discovery.data import (
     Shapes3dDataModule,
     RAVENSRobotDataModule,
     SketchyDataModule,
+    ClevrTexDataModule,
 )
 from object_discovery.method import SlotAttentionMethod
 from object_discovery.slot_attention_model import SlotAttentionModel
@@ -84,6 +85,17 @@ def main(params=None):
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
             neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
+        )
+    elif params.dataset == "clevrtex":
+        datamodule = ClevrTexDataModule(
+            data_root=params.data_root,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
+            resolution=params.resolution,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
+            dataset_variant=params.clevrtex_dataset_variant,
+            max_n_objects=params.num_slots - 1,
         )
 
     print(

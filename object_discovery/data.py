@@ -1,10 +1,12 @@
 import json
 import os
 from glob import glob
+from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 import h5py
 import numpy as np
 import pytorch_lightning as pl
@@ -548,6 +550,260 @@ class SketchyDataModule(pl.LightningDataModule):
             data_dir=self.data_root,
             mode="valid",
             neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
+
+
+class ClevrTexDataset(Dataset):
+    splits = {"test": (0.0, 0.1), "val": (0.1, 0.2), "train": (0.2, 1.0)}
+    variants = {"full", "pbg", "vbg", "grassbg", "camo", "outd"}
+
+    def _reindex(self):
+        print(f"Indexing {self.basepath}")
+
+        img_index = {}
+        msk_index = {}
+        met_index = {}
+
+        prefix = f"CLEVRTEX_{self.dataset_variant}_"
+
+        img_suffix = ".png"
+        msk_suffix = "_flat.png"
+        met_suffix = ".json"
+
+        _max = 0
+        for img_path in tqdm(
+            self.basepath.glob(f"**/{prefix}??????{img_suffix}"), desc="Indexing"
+        ):
+            indstr = img_path.name.replace(prefix, "").replace(img_suffix, "")
+            msk_path = img_path.parent / f"{prefix}{indstr}{msk_suffix}"
+            met_path = img_path.parent / f"{prefix}{indstr}{met_suffix}"
+            indstr_stripped = indstr.lstrip("0")
+            if indstr_stripped:
+                ind = int(indstr)
+            else:
+                ind = 0
+            if ind > _max:
+                _max = ind
+
+            if not msk_path.exists():
+                raise ValueError(f"Missing {msk_suffix.name}")
+
+            if ind in img_index:
+                raise ValueError(f"Duplica {ind}")
+
+            img_index[ind] = img_path
+            msk_index[ind] = msk_path
+            if not met_path.exists():
+                raise ValueError(f"Missing {met_path.name}")
+            met_index[ind] = met_path
+
+        if len(img_index) == 0:
+            raise ValueError(f"No values found")
+        missing = [i for i in range(0, _max) if i not in img_index]
+        if missing:
+            raise ValueError(f"Missing images numbers {missing}")
+
+        return img_index, msk_index, met_index
+
+    def _variant_subfolder(self):
+        return f"clevrtex_{self.dataset_variant.lower()}"
+
+    def __init__(
+        self,
+        path,
+        dataset_variant="full",
+        split="train",
+        crop=True,
+        resize=(128, 128),
+        neg_1_to_pos_1_scale=True,
+        max_n_objects: int = 10,
+        index_cache_dir: str = "data/cache/",
+    ):
+        self.crop = crop
+        self.resize = resize
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
+        self.max_n_objects = max_n_objects
+        self.index_cache_dir = index_cache_dir
+        if dataset_variant not in self.variants:
+            raise ValueError(
+                f"Unknown variant {dataset_variant}; [{', '.join(self.variants)}] available "
+            )
+
+        if split not in self.splits:
+            raise ValueError(
+                f"Unknown split {split}; [{', '.join(self.splits)}] available "
+            )
+        if dataset_variant == "outd":
+            # No dataset splits in
+            split = None
+
+        self.dataset_variant = dataset_variant
+        self.split = split
+
+        self.basepath = Path(path)
+
+        if self.index_cache_dir:
+            os.makedirs(index_cache_dir, exist_ok=True)
+            index_path = os.path.join(
+                self.index_cache_dir, f"index_{max_n_objects}.npy"
+            )
+            mask_index_path = os.path.join(
+                self.index_cache_dir, f"mask_index_{max_n_objects}.npy"
+            )
+            if os.path.isfile(index_path) and os.path.isfile(mask_index_path):
+                self.index = np.load(index_path)
+                self.mask_index = np.load(mask_index_path)
+                return
+
+        self.index, self.mask_index, metadata_index = self._reindex()
+
+        print(f"Sourced {dataset_variant} ({split}) from {self.basepath}")
+
+        bias, limit = self.splits.get(split, (0.0, 1.0))
+        if isinstance(bias, float):
+            bias = int(bias * len(self.index))
+        if isinstance(limit, float):
+            limit = int(limit * len(self.index))
+
+        self.index = np.array(dict(sorted(self.index.items())).values())
+        self.mask_index = np.array(dict(sorted(self.mask_index.items())).values())
+        metadata_index = np.array(dict(sorted(metadata_index.items())).values())
+        self.index = self.index[bias:limit]
+        self.mask_index = self.mask_index[bias:limit]
+        metadata_index = metadata_index[bias:limit]
+
+        if self.max_n_objects:
+            idxs_to_remove = []
+            for idx, metadata_path in tqdm(
+                enumerate(metadata_index), desc="Reading metadata"
+            ):
+                with open(metadata_path, "r") as file:
+                    metadata = self._format_metadata(json.load(file))
+                num_objects_in_scene = len(metadata["objects"])
+                if num_objects_in_scene > self.max_n_objects:
+                    idxs_to_remove.append(idx)
+            self.index = np.delete(self.index, idxs_to_remove)
+            self.mask_index = np.delete(self.mask_index, idxs_to_remove)
+
+        if self.index_cache_dir:
+            np.save(index_path, self.index)
+            np.save(mask_index_path, self.mask_index)
+
+    def _format_metadata(self, meta):
+        """
+        Drop unimportanat, unsued or incorrect data from metadata.
+        Data may become incorrect due to transformations,
+        such as cropping and resizing would make pixel coordinates incorrect.
+        Furthermore, only VBG dataset has color assigned to objects, we delete the value for others.
+        """
+        objs = []
+        for obj in meta["objects"]:
+            o = {
+                "material": obj["material"],
+                "shape": obj["shape"],
+                "size": obj["size"],
+                "rotation": obj["rotation"],
+            }
+            if self.dataset_variant == "vbg":
+                o["color"] = obj["color"]
+            objs.append(o)
+        return {"ground_material": meta["ground_material"], "objects": objs}
+
+    def __len__(self):
+        return self.limit - self.bias
+
+    def __getitem__(self, ind):
+        img = Image.open(self.index[ind])
+        msk = Image.open(self.mask_index[ind])
+
+        if self.crop:
+            crop_size = int(0.8 * float(min(img.width, img.height)))
+            img = img.crop(
+                (
+                    (img.width - crop_size) // 2,
+                    (img.height - crop_size) // 2,
+                    (img.width + crop_size) // 2,
+                    (img.height + crop_size) // 2,
+                )
+            )
+            msk = msk.crop(
+                (
+                    (msk.width - crop_size) // 2,
+                    (msk.height - crop_size) // 2,
+                    (msk.width + crop_size) // 2,
+                    (msk.height + crop_size) // 2,
+                )
+            )
+        if self.resize:
+            img = img.resize(self.resize, resample=Image.BILINEAR)
+            msk = msk.resize(self.resize, resample=Image.NEAREST)
+
+        img = transforms.functional.to_tensor(np.array(img)[..., :3])
+        if self.neg_1_to_pos_1_scale:
+            img = rescale(img)
+        msk = torch.from_numpy(np.array(msk))[None]
+        print(msk.shape)
+
+        return img, msk
+
+
+class ClevrTexDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        data_root: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        num_workers: int,
+        max_n_objects: int = 10,
+        resolution: Optional[Tuple[int, int]] = None,
+        neg_1_to_pos_1_scale: bool = True,
+        dataset_variant: str = "full",
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.num_workers = num_workers
+        self.max_n_objects = max_n_objects
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
+        self.dataset_variant = dataset_variant
+        self.resolution = resolution
+
+        self.train_dataset = ClevrTexDataset(
+            path=self.data_root,
+            dataset_variant=self.dataset_variant,
+            split="train",
+            crop=bool(self.resolution),
+            resize=self.resolution if self.resolution else False,
+            neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+            max_n_objects=max_n_objects,
+        )
+        self.val_dataset = ClevrTexDataset(
+            path=self.data_root,
+            dataset_variant=self.dataset_variant,
+            split="val",
+            crop=bool(self.resolution),
+            resize=self.resolution if self.resolution else False,
+            neg_1_to_pos_1_scale=neg_1_to_pos_1_scale,
+            max_n_objects=max_n_objects,
         )
 
     def train_dataloader(self):
