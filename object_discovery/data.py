@@ -574,6 +574,7 @@ class SketchyDataModule(pl.LightningDataModule):
 class ClevrTexDataset(Dataset):
     splits = {"test": (0.0, 0.1), "val": (0.1, 0.2), "train": (0.2, 1.0)}
     variants = {"full", "pbg", "vbg", "grassbg", "camo", "outd"}
+    max_num_entries = 11
 
     def _reindex(self):
         print(f"Indexing {self.basepath}")
@@ -609,11 +610,11 @@ class ClevrTexDataset(Dataset):
             if ind in img_index:
                 raise ValueError(f"Duplica {ind}")
 
-            img_index[ind] = img_path
-            msk_index[ind] = msk_path
+            img_index[ind] = str(img_path)
+            msk_index[ind] = str(msk_path)
             if not met_path.exists():
                 raise ValueError(f"Missing {met_path.name}")
-            met_index[ind] = met_path
+            met_index[ind] = str(met_path)
 
         if len(img_index) == 0:
             raise ValueError(f"No values found")
@@ -663,29 +664,44 @@ class ClevrTexDataset(Dataset):
         if self.index_cache_dir:
             os.makedirs(index_cache_dir, exist_ok=True)
             index_path = os.path.join(
-                self.index_cache_dir, f"index_{max_n_objects}.npy"
+                self.index_cache_dir, f"index_{split}_{max_n_objects}.npy"
             )
             mask_index_path = os.path.join(
-                self.index_cache_dir, f"mask_index_{max_n_objects}.npy"
+                self.index_cache_dir, f"mask_index_{split}_{max_n_objects}.npy"
             )
             if os.path.isfile(index_path) and os.path.isfile(mask_index_path):
                 self.index = np.load(index_path)
                 self.mask_index = np.load(mask_index_path)
                 return
 
-        self.index, self.mask_index, metadata_index = self._reindex()
+        full_data_path = os.path.join(
+            self.index_cache_dir, f"full_data_{split}_{max_n_objects}.npy"
+        )
+        if self.index_cache_dir and os.path.isfile(full_data_path):
+            self.index, self.mask_index, metadata_index = np.load(full_data_path)
+        else:
+            self.index, self.mask_index, metadata_index = self._reindex()
 
-        print(f"Sourced {dataset_variant} ({split}) from {self.basepath}")
+            print(f"Sourced {dataset_variant} ({split}) from {self.basepath}")
 
-        bias, limit = self.splits.get(split, (0.0, 1.0))
-        if isinstance(bias, float):
-            bias = int(bias * len(self.index))
-        if isinstance(limit, float):
-            limit = int(limit * len(self.index))
+            bias, limit = self.splits.get(split, (0.0, 1.0))
+            if isinstance(bias, float):
+                bias = int(bias * len(self.index))
+            if isinstance(limit, float):
+                limit = int(limit * len(self.index))
 
-        self.index = np.array(dict(sorted(self.index.items())).values())
-        self.mask_index = np.array(dict(sorted(self.mask_index.items())).values())
-        metadata_index = np.array(dict(sorted(metadata_index.items())).values())
+            print("Converting dataset image paths to numpy array")
+            self.index = np.array(list(dict(sorted(self.index.items())).values()))
+            self.mask_index = np.array(
+                list(dict(sorted(self.mask_index.items())).values())
+            )
+            metadata_index = np.array(
+                list(dict(sorted(metadata_index.items())).values())
+            )
+            np.save(
+                full_data_path, np.array([self.index, self.mask_index, metadata_index])
+            )
+
         self.index = self.index[bias:limit]
         self.mask_index = self.mask_index[bias:limit]
         metadata_index = metadata_index[bias:limit]
@@ -728,7 +744,7 @@ class ClevrTexDataset(Dataset):
         return {"ground_material": meta["ground_material"], "objects": objs}
 
     def __len__(self):
-        return self.limit - self.bias
+        return len(self.index)
 
     def __getitem__(self, ind):
         img = Image.open(self.index[ind])
@@ -760,7 +776,13 @@ class ClevrTexDataset(Dataset):
         if self.neg_1_to_pos_1_scale:
             img = rescale(img)
         msk = torch.from_numpy(np.array(msk))[None]
-        print(msk.shape)
+        # `msk` has shape [channel, height, width]
+        msk = msk.permute([1, 2, 0])
+        # `msk` has shape [height, width, channel]
+        msk = F.one_hot(msk.to(torch.int64), self.max_num_entries)
+        # `msk` has shape [height, width, channel, max_num_entries]
+        msk = msk.permute([3, 0, 1, 2])
+        # `msk` has shape [max_num_entries, height, width, channel]
 
         return img, msk
 
@@ -786,6 +808,7 @@ class ClevrTexDataModule(pl.LightningDataModule):
         self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
         self.dataset_variant = dataset_variant
         self.resolution = resolution
+        self.max_num_entries = 11
 
         self.train_dataset = ClevrTexDataset(
             path=self.data_root,
