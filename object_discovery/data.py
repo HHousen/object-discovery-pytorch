@@ -843,6 +843,7 @@ class ClevrTexDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=True,
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -852,4 +853,5 @@ class ClevrTexDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=True,
+            drop_last=True,
         )
