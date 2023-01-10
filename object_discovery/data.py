@@ -672,25 +672,21 @@ class ClevrTexDataset(Dataset):
                 self.index_cache_dir, f"mask_index_{split}_{max_n_objects}.npy"
             )
             if os.path.isfile(index_path) and os.path.isfile(mask_index_path):
+                print(f"Loading {index_path} and {mask_index_path}")
                 self.index = np.load(index_path)
                 self.mask_index = np.load(mask_index_path)
                 return
 
         full_data_path = os.path.join(
-            self.index_cache_dir, f"full_data_{split}_{max_n_objects}.npy"
+            self.index_cache_dir, f"full_data.npy"
         )
         if self.index_cache_dir and os.path.isfile(full_data_path):
+            print(f"Loading {full_data_path}")
             self.index, self.mask_index, metadata_index = np.load(full_data_path)
         else:
             self.index, self.mask_index, metadata_index = self._reindex()
 
             print(f"Sourced {dataset_variant} ({split}) from {self.basepath}")
-
-            bias, limit = self.splits.get(split, (0.0, 1.0))
-            if isinstance(bias, float):
-                bias = int(bias * len(self.index))
-            if isinstance(limit, float):
-                limit = int(limit * len(self.index))
 
             print("Converting dataset image paths to numpy array")
             self.index = np.array(list(dict(sorted(self.index.items())).values()))
@@ -703,6 +699,12 @@ class ClevrTexDataset(Dataset):
             np.save(
                 full_data_path, np.array([self.index, self.mask_index, metadata_index])
             )
+
+        bias, limit = self.splits.get(split, (0.0, 1.0))
+        if isinstance(bias, float):
+            bias = int(bias * len(self.index))
+        if isinstance(limit, float):
+            limit = int(limit * len(self.index))
 
         self.index = self.index[bias:limit]
         self.mask_index = self.mask_index[bias:limit]
