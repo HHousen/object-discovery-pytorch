@@ -591,7 +591,9 @@ class ClevrTexDataset(Dataset):
 
         _max = 0
         for img_path in tqdm(
-            self.basepath.glob(f"**/{prefix}??????{img_suffix}"), desc="Indexing"
+            self.basepath.glob(f"**/{prefix}??????{img_suffix}"),
+            desc="Indexing",
+            total=50_000,
         ):
             indstr = img_path.name.replace(prefix, "").replace(img_suffix, "")
             msk_path = img_path.parent / f"{prefix}{indstr}{msk_suffix}"
@@ -709,7 +711,9 @@ class ClevrTexDataset(Dataset):
         if self.max_n_objects:
             idxs_to_remove = []
             for idx, metadata_path in tqdm(
-                enumerate(metadata_index), desc="Reading metadata"
+                enumerate(metadata_index),
+                desc="Reading metadata",
+                total=len(metadata_index),
             ):
                 with open(metadata_path, "r") as file:
                     metadata = self._format_metadata(json.load(file))
