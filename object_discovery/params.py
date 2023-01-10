@@ -2,12 +2,12 @@ from argparse import Namespace
 
 
 training_params = Namespace(
-    model_type="slate",
+    model_type="gnm",
     dataset="clevr",
     num_slots=7,
     num_iterations=3,
     accumulate_grad_batches=1,
-    data_root="/media/Main/Downloads/CLEVR_v1.0",
+    data_root="data/clevr_with_masks.h5",
     accelerator="gpu",
     devices=-1,
     max_steps=-1,
@@ -61,7 +61,7 @@ slate_params = Namespace(
 )
 
 gnm_params = Namespace(
-    std=0.5,
+    std=0.2,  # 0.2 on CLEVR, 0.5 on ClevrTex
     z_what_dim=64,
     z_bg_dim=10,
     lr_main=1e-4,
