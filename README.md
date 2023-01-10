@@ -22,7 +22,7 @@ The initial code for this repo was forked from [untitled-ai/slot_attention](http
 
 1. Clone the repo: `git clone https://github.com/HHousen/slot-attention-pytorch/ && cd slot-attention-pytorch`.
 2. Install requirements and activate environment: `poetry install` then `poetry shell`.
-3. Download the [CLEVR (with masks)](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO) dataset (or the original [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/) dataset by running `./download_clevr.sh /tmp/CLEVR`). More details about the datasets are below.
+3. Download the [CLEVR (with masks)](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO) dataset (or the original [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/) dataset by running `./data_scripts/download_clevr.sh /tmp/CLEVR`). More details about the datasets are below.
 4. Modify the hyperparameters in [object_discovery/params.py](object_discovery/params.py) to fit your needs. Make sure to change `data_root` to the location of your dataset.
 5. Train a model: `python -m slot_attention.train`.
 
@@ -44,7 +44,7 @@ Our implementations are based on several open-source repositories.
 
 Select a dataset by changing the `dataset` parameter in [object_discovery/params.py](object_discovery/params.py) to the name of the dataset: `clevr`, `shapes3d`, or `ravens`. Then, set the `data_root` parameter to the location of the data. The code for loading supported datasets is in [object_discovery/data.py](object_discovery/data.py).
 
-1. [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/): Download by executing [download_clevr.sh](./download_clevr.sh).
+1. [CLEVR](https://cs.stanford.edu/people/jcjohns/clevr/): Download by executing [download_clevr.sh](./data_scripts/download_clevr.sh).
 2. [CLEVR (with masks)](https://github.com/deepmind/multi_object_datasets#clevr-with-masks): [Original TFRecords Download](https://console.cloud.google.com/storage/browser/multi-object-datasets/clevr_with_masks) / [Our HDF5 PyTorch Version](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO).
     - This dataset is a regenerated version of CLEVR but with ground-truth segmentation masks. This enables the training script to calculate Adjusted Rand Index (ARI) during validation runs.
     - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [object_discovery/train.py](object_discovery/train.py) script.
