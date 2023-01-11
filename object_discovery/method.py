@@ -9,6 +9,7 @@ from torchvision import utils as vutils
 
 from object_discovery.slot_attention_model import SlotAttentionModel
 from object_discovery.slate_model import SLATE
+from object_discovery.gnm.gnm_model import GNM
 from object_discovery.utils import (
     to_rgb_from_tensor,
     warm_and_decay_lr_scheduler,
@@ -23,7 +24,7 @@ from object_discovery.gnm.logging import gnm_log_validation_outputs
 class SlotAttentionMethod(pl.LightningModule):
     def __init__(
         self,
-        model: Union[SlotAttentionModel, SLATE],
+        model: Union[SlotAttentionModel, SLATE, GNM],
         datamodule: pl.LightningDataModule,
         params: Namespace,
     ):
