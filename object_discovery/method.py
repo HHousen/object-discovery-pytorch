@@ -17,6 +17,7 @@ from object_discovery.utils import (
     linear_warmup,
     visualize,
     compute_ari,
+    sa_segment,
 )
 from object_discovery.gnm.logging import gnm_log_validation_outputs
 
@@ -91,6 +92,9 @@ class SlotAttentionMethod(pl.LightningModule):
             batch = batch.to(self.device)
         if self.params.model_type == "sa":
             recon_combined, recons, masks, slots = self.model.forward(batch)
+            # `masks` has shape [batch_size, num_entries, channels, height, width]
+            threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
+            segmentation, segmentation_thresholded = sa_segment(masks, threshold)
 
             # combine images in a nice way so we can display all outputs in one grid, output rescaled to be between 0 and 1
             out = to_rgb_from_tensor(
@@ -98,6 +102,8 @@ class SlotAttentionMethod(pl.LightningModule):
                     [
                         batch.unsqueeze(1),  # original images
                         recon_combined.unsqueeze(1),  # reconstructions
+                        segmentation.unsqueeze(1),
+                        segmentation_thresholded.unsqueeze(1),
                         recons * masks + (1 - masks),  # each slot
                     ],
                     dim=1,
@@ -262,7 +268,10 @@ class SlotAttentionMethod(pl.LightningModule):
                 return (
                     [optimizer],
                     [
-                        {"scheduler": scheduler, "interval": "step",},
+                        {
+                            "scheduler": scheduler,
+                            "interval": "step",
+                        },
                         {
                             "scheduler": reduce_on_plateau,
                             "interval": "epoch",
@@ -273,6 +282,11 @@ class SlotAttentionMethod(pl.LightningModule):
 
             return (
                 [optimizer],
-                [{"scheduler": scheduler, "interval": "step",}],
+                [
+                    {
+                        "scheduler": scheduler,
+                        "interval": "step",
+                    }
+                ],
             )
         return optimizer

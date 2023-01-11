@@ -677,9 +677,7 @@ class ClevrTexDataset(Dataset):
                 self.mask_index = np.load(mask_index_path)
                 return
 
-        full_data_path = os.path.join(
-            self.index_cache_dir, f"full_data.npy"
-        )
+        full_data_path = os.path.join(self.index_cache_dir, f"full_data.npy")
         if self.index_cache_dir and os.path.isfile(full_data_path):
             print(f"Loading {full_data_path}")
             self.index, self.mask_index, metadata_index = np.load(full_data_path)

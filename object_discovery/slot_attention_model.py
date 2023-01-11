@@ -63,7 +63,8 @@ class SlotAttention(nn.Module):
         self.slot_log_sigma = nn.Parameter(torch.zeros(1, 1, self.slot_size))
         nn.init.xavier_uniform_(self.slot_mu, gain=nn.init.calculate_gain("linear"))
         nn.init.xavier_uniform_(
-            self.slot_log_sigma, gain=nn.init.calculate_gain("linear"),
+            self.slot_log_sigma,
+            gain=nn.init.calculate_gain("linear"),
         )
 
     def step(self, slots, k, v, batch_size, num_inputs):
@@ -73,7 +74,7 @@ class SlotAttention(nn.Module):
         # Attention.
         q = self.project_q(slots)  # Shape: [batch_size, num_slots, slot_size].
         assert_shape(q.size(), (batch_size, self.num_slots, self.slot_size))
-        q *= self.slot_size ** -0.5  # Normalization
+        q *= self.slot_size**-0.5  # Normalization
         attn_logits = torch.matmul(k, q.transpose(2, 1))
         attn = F.softmax(attn_logits, dim=-1)
         # `attn` has shape: [batch_size, num_inputs, num_slots].
@@ -293,7 +294,9 @@ class SlotAttentionModel(nn.Module):
     def loss_function(self, input, global_step=None):
         recon_combined, recons, masks, slots = self.forward(input)
         loss = F.mse_loss(recon_combined, input)
-        return {"loss": loss,}, masks
+        return {
+            "loss": loss,
+        }, masks
 
 
 class SoftPositionEmbed(nn.Module):

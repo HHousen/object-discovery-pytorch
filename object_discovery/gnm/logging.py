@@ -8,34 +8,7 @@ import itertools
 import torch
 import torchvision as tv
 from ..segmentation_metrics import adjusted_rand_index
-
-from matplotlib.colors import ListedColormap
-from matplotlib.cm import get_cmap
-
-import numpy as np
-
-from PIL import Image, ImageFont, ImageDraw
-
-FNT = ImageFont.truetype("dejavu/DejaVuSansMono.ttf", 7)
-CMAPSPEC = ListedColormap(
-    ["black", "red", "green", "blue", "yellow"]
-    + list(
-        itertools.chain.from_iterable(
-            itertools.chain.from_iterable(
-                zip(
-                    [get_cmap("tab20b")(i) for i in range(i, 20, 4)],
-                    [get_cmap("tab20c")(i) for i in range(i, 20, 4)],
-                )
-            )
-            for i in range(4)
-        )
-    )
-    + ["cyan", "magenta"]
-    + [get_cmap("Set3")(i) for i in range(12)]
-    + ["white"],
-    name="SemSegMap",
-)
-
+from ..utils import cmap_tensor
 
 @torch.no_grad()
 def _to_img(img, lim=None, dim=-3):
@@ -106,19 +79,11 @@ def log_semantic_images(input, output, true_masks, pred_masks):
     omg = _to_img(output, lim=len(img))
     true_masks = true_masks[: len(img)].to(torch.float).argmax(1).squeeze(1)
     pred_masks = pred_masks[: len(img)].to(torch.float).argmax(1).squeeze(1)
-    tms = (_cmap_tensor(true_masks) * 255.0).to(torch.uint8)
-    pms = (_cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
+    tms = (cmap_tensor(true_masks) * 255.0).to(torch.uint8)
+    pms = (cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
     vis_imgs = list(itertools.chain.from_iterable(zip(img, omg, tms, pms)))
     grid = tv.utils.make_grid(vis_imgs, pad_value=128, nrow=16)
     return grid.permute([1, 2, 0]).cpu().numpy()
-
-
-@torch.no_grad()
-def _cmap_tensor(t):
-    t_hw = t.cpu().numpy()
-    o_hwc = CMAPSPEC(t_hw)[..., :3]  # drop alpha
-    o = torch.from_numpy(o_hwc).transpose(-1, -2).transpose(-2, -3).to(t.device)
-    return o
 
 
 def gnm_log_validation_outputs(batch, batch_idx, output, is_global_zero):

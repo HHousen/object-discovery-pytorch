@@ -1,5 +1,10 @@
 from typing import Any, Tuple, Union
 import math
+import itertools
+
+from matplotlib.colors import ListedColormap
+from matplotlib.cm import get_cmap
+from PIL import ImageFont
 
 import torch
 import torch.nn as nn
@@ -8,6 +13,35 @@ from pytorch_lightning import Callback
 from object_discovery.segmentation_metrics import adjusted_rand_index
 
 import wandb
+
+
+FNT = ImageFont.truetype("dejavu/DejaVuSansMono.ttf", 7)
+CMAPSPEC = ListedColormap(
+    ["black", "red", "green", "blue", "yellow"]
+    + list(
+        itertools.chain.from_iterable(
+            itertools.chain.from_iterable(
+                zip(
+                    [get_cmap("tab20b")(i) for i in range(i, 20, 4)],
+                    [get_cmap("tab20c")(i) for i in range(i, 20, 4)],
+                )
+            )
+            for i in range(4)
+        )
+    )
+    + ["cyan", "magenta"]
+    + [get_cmap("Set3")(i) for i in range(12)]
+    + ["white"],
+    name="SemSegMap",
+)
+
+
+@torch.no_grad()
+def cmap_tensor(t):
+    t_hw = t.cpu().numpy()
+    o_hwc = CMAPSPEC(t_hw)[..., :3]  # drop alpha
+    o = torch.from_numpy(o_hwc).transpose(-1, -2).transpose(-2, -3).to(t.device)
+    return o
 
 
 def conv_transpose_out_shape(
@@ -215,3 +249,17 @@ def flatten_all_but_last(tensor, n_dims=1):
         return torch.reshape(other_tensor, batch_dims + other_shape[1:])
 
     return flat_tensor, unflatten
+
+
+def sa_segment(masks, threshold):
+    # Ensure that each pixel belongs to exclusively the slot with the
+    # greatest mask value for that pixel. Mask values are in the range
+    # [0, 1] and sum to 1.
+    pred_masks = masks.to(torch.float).argmax(1).squeeze(1)
+    segmentation = (cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
+
+    masks[masks < threshold] = 0
+    pred_masks = masks.to(torch.float).argmax(1).squeeze(1)
+    segmentation_thresholded = (cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
+
+    return segmentation, segmentation_thresholded
