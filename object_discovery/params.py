@@ -2,12 +2,12 @@ from argparse import Namespace
 
 
 training_params = Namespace(
-    model_type="gnm",
-    dataset="clevr",
+    model_type="sa",
+    dataset="clevrtex",
     num_slots=7,
     num_iterations=3,
     accumulate_grad_batches=1,
-    data_root="data/clevr_with_masks.h5",
+    data_root="data/clevrtex_full",
     accelerator="gpu",
     devices=-1,
     max_steps=-1,
@@ -16,6 +16,7 @@ training_params = Namespace(
     is_logger_enabled=True,
     gradient_clip_val=0.0,
     n_samples=16,
+    clevrtex_dataset_variant="full",
     alternative_crop=True,  # Alternative crop for RAVENS dataset
 )
 
