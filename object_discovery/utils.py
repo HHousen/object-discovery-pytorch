@@ -17,7 +17,7 @@ import wandb
 
 FNT = ImageFont.truetype("dejavu/DejaVuSansMono.ttf", 7)
 CMAPSPEC = ListedColormap(
-    ["black", "red", "green", "blue", "yellow"]
+    ["black", "red", "green", "blue", "yellow", "cyan", "magenta"]
     + list(
         itertools.chain.from_iterable(
             itertools.chain.from_iterable(
@@ -29,7 +29,6 @@ CMAPSPEC = ListedColormap(
             for i in range(4)
         )
     )
-    + ["cyan", "magenta"]
     + [get_cmap("Set3")(i) for i in range(12)]
     + ["white"],
     name="SemSegMap",
@@ -252,14 +251,28 @@ def flatten_all_but_last(tensor, n_dims=1):
 
 
 def sa_segment(masks, threshold):
+    # `masks` has shape [batch_size, num_entries, channels, height, width].
     # Ensure that each pixel belongs to exclusively the slot with the
     # greatest mask value for that pixel. Mask values are in the range
-    # [0, 1] and sum to 1.
-    pred_masks = masks.to(torch.float).argmax(1).squeeze(1)
-    segmentation = (cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
+    # [0, 1] and sum to 1. Add 1 to `pred_masks` so the values/colors
+    # line up with `segmentation_thresholded`
+    pred_masks = masks.to(torch.float).argmax(1).squeeze(1) + 1
+    segmentation = cmap_tensor(pred_masks.to(torch.uint8))
 
-    masks[masks < threshold] = 0
-    pred_masks = masks.to(torch.float).argmax(1).squeeze(1)
-    segmentation_thresholded = (cmap_tensor(pred_masks) * 255.0).to(torch.uint8)
+    pred_masks = masks.clone()
+    # For each pixel, if the mask value for that pixel is less than the
+    # threshold across all slots, then it belongs to an imaginary slot. This
+    # imaginary slot is concatenated to the masks as the first mask with any
+    # pixels that belong to it set to 1. So, the argmax will always select the
+    # imaginary slot for a pixel if that pixel is in the imaginary slot. This
+    # has the effect such that any pixel that is masked by multiple slots will
+    # be grouped together into one mask and removed from its previous mask.
+    less_than_threshold = pred_masks < threshold
+    thresholded = torch.all(less_than_threshold, dim=1, keepdim=True).to(torch.float)
+    pred_masks = torch.cat([thresholded, pred_masks], dim=1)
+    pred_masks = pred_masks.to(torch.float).argmax(1).squeeze(1)
+    segmentation_thresholded = cmap_tensor(pred_masks.to(torch.uint8))
 
+    # `segmentation` and `segmentation_thresholded` have shape
+    # [batch_size, channels=3, height, width].
     return segmentation, segmentation_thresholded

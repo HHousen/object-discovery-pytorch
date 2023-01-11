@@ -6,6 +6,7 @@ import wandb
 import torch
 from torch import optim
 from torchvision import utils as vutils
+from torchvision import transforms
 
 from object_discovery.slot_attention_model import SlotAttentionModel
 from object_discovery.slate_model import SLATE
@@ -18,6 +19,7 @@ from object_discovery.utils import (
     visualize,
     compute_ari,
     sa_segment,
+    rescale,
 )
 from object_discovery.gnm.logging import gnm_log_validation_outputs
 
@@ -29,6 +31,8 @@ class SlotAttentionMethod(pl.LightningModule):
         datamodule: pl.LightningDataModule,
         params: Namespace,
     ):
+        if type(params) is dict:
+            params = Namespace(**params)
         super().__init__()
         self.model = model
         self.datamodule = datamodule
@@ -92,22 +96,20 @@ class SlotAttentionMethod(pl.LightningModule):
             batch = batch.to(self.device)
         if self.params.model_type == "sa":
             recon_combined, recons, masks, slots = self.model.forward(batch)
-            # `masks` has shape [batch_size, num_entries, channels, height, width]
+            # `masks` has shape [batch_size, num_entries, channels, height, width].
             threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
             segmentation, segmentation_thresholded = sa_segment(masks, threshold)
 
             # combine images in a nice way so we can display all outputs in one grid, output rescaled to be between 0 and 1
-            out = to_rgb_from_tensor(
-                torch.cat(
-                    [
-                        batch.unsqueeze(1),  # original images
-                        recon_combined.unsqueeze(1),  # reconstructions
-                        segmentation.unsqueeze(1),
-                        segmentation_thresholded.unsqueeze(1),
-                        recons * masks + (1 - masks),  # each slot
-                    ],
-                    dim=1,
-                )
+            out = torch.cat(
+                [
+                    to_rgb_from_tensor(batch.unsqueeze(1)),  # original images
+                    to_rgb_from_tensor(recon_combined.unsqueeze(1)),  # reconstructions
+                    segmentation.unsqueeze(1),
+                    segmentation_thresholded.unsqueeze(1),
+                    to_rgb_from_tensor(recons * masks + (1 - masks)),  # each slot
+                ],
+                dim=1,
             )
 
             batch_size, num_slots, C, H, W = recons.shape
@@ -290,3 +292,57 @@ class SlotAttentionMethod(pl.LightningModule):
                 ],
             )
         return optimizer
+
+    def predict(self, image, do_transforms=False, debug=False, return_pil=False):
+        if do_transforms:
+            if getattr(self, "predict_transforms", True):
+                current_transforms = []
+                if type(image) is not torch.Tensor:
+                    current_transforms.append(transforms.ToTensor())
+                if self.params.model_type == "sa":
+                    current_transforms.append(transforms.Lambda(rescale))
+                current_transforms.append(transforms.Resize(self.params.resolution))
+                self.predict_transforms = transforms.Compose(current_transforms)
+            image = self.predict_transforms(image)
+
+        if len(image.shape) == 3:
+            # Add the batch_size dimension (set to 1) if input is a single image.
+            image = image.unsqueeze(0)
+
+        if self.params.model_type == "sa":
+            recon_combined, recons, masks, slots = self.forward(image)
+            threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
+            segmentation, segmentation_thresholded = sa_segment(masks, threshold)
+            # `segmentation` and `segmentation_thresholded` have shape
+            # [batch_size, channels=3, height, width].
+            if debug:
+                out = torch.cat(
+                    [
+                        to_rgb_from_tensor(image.unsqueeze(1)),  # original images
+                        to_rgb_from_tensor(
+                            recon_combined.unsqueeze(1)
+                        ),  # reconstructions
+                        segmentation.unsqueeze(1),
+                        segmentation_thresholded.unsqueeze(1),
+                        to_rgb_from_tensor(recons * masks + (1 - masks)),  # each slot
+                    ],
+                    dim=1,
+                )
+                batch_size, num_slots, C, H, W = recons.shape
+                images = vutils.make_grid(
+                    out.view(batch_size * out.shape[1], C, H, W).cpu(),
+                    normalize=False,
+                    nrow=out.shape[1],
+                )
+                to_return = images
+            else:
+                to_return = segmentation_thresholded
+
+            if return_pil:
+                to_return = transforms.functional.to_pil_image(to_return)
+            return to_return
+        else:
+            raise ValueError(
+                "The predict function is only implemented for "
+                + 'Slot Attention (params.model_type == "sa").'
+            )
