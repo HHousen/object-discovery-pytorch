@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 import wandb
 import torch
 from torch import optim
+import torch.nn.functional as F
 from torchvision import utils as vutils
 from torchvision import transforms
 
@@ -20,6 +21,8 @@ from object_discovery.utils import (
     compute_ari,
     sa_segment,
     rescale,
+    get_largest_objects,
+    cmap_tensor,
 )
 from object_discovery.gnm.logging import gnm_log_validation_outputs
 
@@ -293,7 +296,40 @@ class SlotAttentionMethod(pl.LightningModule):
             )
         return optimizer
 
-    def predict(self, image, do_transforms=False, debug=False, return_pil=False):
+    def predict(
+        self,
+        image,
+        do_transforms=False,
+        debug=False,
+        return_pil=False,
+        background_detection="spread_out",
+        background_metric="area",
+    ):
+        """
+        `background_detection` options:
+            - "spread_out" detects the background as pixels that appear in multiple
+            slot masks.
+            - "concentrated" assumes the background has been assigned
+            to one slot. The slot with the largest distance between two points
+            in its mask is assumed to be the background when using
+            "concentrated."
+            - When using "both," pixels detected using "spread_out"
+            and the largest object detected using "concentrated" will be the
+            background. The largest object detected using "concentrated" can be
+            the background.
+        `background_metric` is used when `background_detection` is set to "both" or
+            "concentrated" to determine which object is largest.
+            - "area" will find the object with the largest area
+            - "distance" will find the object with the greatest distance between
+                two points in that object.
+
+        """
+        assert background_detection in ["spread_out", "concentrated", "both"]
+        if return_pil:
+            assert (
+                len(image.shape) == 3 or image.shape[0] == 1
+            ), "Only one image can be passed when using `return_pil`"
+
         if do_transforms:
             if getattr(self, "predict_transforms", True):
                 current_transforms = []
@@ -312,9 +348,40 @@ class SlotAttentionMethod(pl.LightningModule):
         if self.params.model_type == "sa":
             recon_combined, recons, masks, slots = self.forward(image)
             threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
-            segmentation, segmentation_thresholded = sa_segment(masks, threshold)
-            # `segmentation` and `segmentation_thresholded` have shape
+            (
+                segmentation,
+                segmentation_thresholded,
+                cmap_segmentation,
+                cmap_segmentation_thresholded,
+            ) = sa_segment(masks, threshold)
+            # `cmap_segmentation` and `cmap_segmentation_thresholded` have shape
             # [batch_size, channels=3, height, width].
+            if background_detection in ["concentrated", "both"]:
+                if background_detection == "both":
+                    # `segmentation_thresholded` has pixels that are masked by
+                    # many slots set to 0 already.
+                    objects = F.one_hot(segmentation_thresholded.to(torch.int64))
+                else:
+                    objects = F.one_hot(segmentation.to(torch.int64))
+                # `objects` has shape [batch_size, height, width, num_objects]
+                objects = objects.permute([0, 3, 1, 2])
+                # `objects` has shape [batch_size, num_objects, height, width]
+                largest_object_idx = get_largest_objects(
+                    objects, metric=background_metric
+                )
+                # `largest_object_idx` has shape [batch_size]
+                largest_object = objects[:, largest_object_idx]
+                # `largest_object` has shape [batch_size, num_objects=1, height, width]
+                largest_object = largest_object.squeeze(1).to(torch.bool)
+
+                segmentation_background = segmentation.clone()
+                # Set the largest object to be index 0, the background.
+                segmentation_background[largest_object] = 0
+                # Recompute the colors now that `largest_object` is the background.
+                cmap_segmentation_background = cmap_tensor(segmentation_background)
+            elif background_detection == "spread_out":
+                segmentation_background = segmentation_thresholded
+                cmap_segmentation_background = cmap_segmentation_thresholded
             if debug:
                 out = torch.cat(
                     [
@@ -322,8 +389,8 @@ class SlotAttentionMethod(pl.LightningModule):
                         to_rgb_from_tensor(
                             recon_combined.unsqueeze(1)
                         ),  # reconstructions
-                        segmentation.unsqueeze(1),
-                        segmentation_thresholded.unsqueeze(1),
+                        cmap_segmentation.unsqueeze(1),
+                        cmap_segmentation_background.unsqueeze(1),
                         to_rgb_from_tensor(recons * masks + (1 - masks)),  # each slot
                     ],
                     dim=1,
@@ -335,12 +402,17 @@ class SlotAttentionMethod(pl.LightningModule):
                     nrow=out.shape[1],
                 )
                 to_return = images
+                if return_pil:
+                    to_return = transforms.functional.to_pil_image(to_return).squeeze()
+                return to_return
             else:
-                to_return = segmentation_thresholded
+                to_return = segmentation_background
+                if return_pil:
+                    to_return = transforms.functional.to_pil_image(
+                        cmap_segmentation_background.squeeze()
+                    )
+                return to_return
 
-            if return_pil:
-                to_return = transforms.functional.to_pil_image(to_return)
-            return to_return
         else:
             raise ValueError(
                 "The predict function is only implemented for "

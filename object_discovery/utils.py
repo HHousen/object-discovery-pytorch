@@ -5,6 +5,9 @@ import itertools
 from matplotlib.colors import ListedColormap
 from matplotlib.cm import get_cmap
 from PIL import ImageFont
+from scipy.spatial import ConvexHull
+from scipy.spatial._qhull import QhullError
+from scipy.spatial.distance import cdist
 
 import torch
 import torch.nn as nn
@@ -250,14 +253,15 @@ def flatten_all_but_last(tensor, n_dims=1):
     return flat_tensor, unflatten
 
 
-def sa_segment(masks, threshold):
+def sa_segment(masks, threshold, return_cmap=True):
     # `masks` has shape [batch_size, num_entries, channels, height, width].
     # Ensure that each pixel belongs to exclusively the slot with the
     # greatest mask value for that pixel. Mask values are in the range
-    # [0, 1] and sum to 1. Add 1 to `pred_masks` so the values/colors
+    # [0, 1] and sum to 1. Add 1 to `segmentation` so the values/colors
     # line up with `segmentation_thresholded`
-    pred_masks = masks.to(torch.float).argmax(1).squeeze(1) + 1
-    segmentation = cmap_tensor(pred_masks.to(torch.uint8))
+    segmentation = masks.to(torch.float).argmax(1).squeeze(1) + 1
+    segmentation = segmentation.to(torch.uint8)
+    cmap_segmentation = cmap_tensor(segmentation)
 
     pred_masks = masks.clone()
     # For each pixel, if the mask value for that pixel is less than the
@@ -270,9 +274,66 @@ def sa_segment(masks, threshold):
     less_than_threshold = pred_masks < threshold
     thresholded = torch.all(less_than_threshold, dim=1, keepdim=True).to(torch.float)
     pred_masks = torch.cat([thresholded, pred_masks], dim=1)
-    pred_masks = pred_masks.to(torch.float).argmax(1).squeeze(1)
-    segmentation_thresholded = cmap_tensor(pred_masks.to(torch.uint8))
+    segmentation_thresholded = pred_masks.to(torch.float).argmax(1).squeeze(1)
+    cmap_segmentation_thresholded = cmap_tensor(
+        segmentation_thresholded.to(torch.uint8)
+    )
 
-    # `segmentation` and `segmentation_thresholded` have shape
+    # `cmap_segmentation` and `cmap_segmentation_thresholded` have shape
     # [batch_size, channels=3, height, width].
+    if return_cmap:
+        return (
+            segmentation,
+            segmentation_thresholded,
+            cmap_segmentation,
+            cmap_segmentation_thresholded,
+        )
     return segmentation, segmentation_thresholded
+
+
+def PolyArea(x, y):
+    """Implementation of Shoelace formula for polygon area"""
+    # From https://stackoverflow.com/a/30408825
+    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+
+
+def get_largest_objects(objects, metric="area"):
+    # Implementation partly from https://stackoverflow.com/a/60955825
+    # `objects` has shape [batch_size, num_objects, height, width]
+    largest_objects = []
+    for batch_idx in range(objects.shape[0]):
+        distances = []
+        for object_idx in range(objects.shape[1]):
+            ob = objects[batch_idx, object_idx].to(torch.bool)
+            if not torch.any(ob):
+                distances.append(0)
+                continue
+
+            # Find a convex hull in O(N log N)
+            points = np.indices((128, 128)).transpose((1, 2, 0))[ob]
+            try:
+                hull = ConvexHull(points)
+            except QhullError:
+                distances.append(0)
+                continue
+            # Extract the points forming the hull
+            hullpoints = points[hull.vertices, :]
+            if metric == "distance":
+                # Naive way of finding the best pair in O(H^2) time if H is number
+                # of points on hull
+                hdist = cdist(hullpoints, hullpoints, metric="euclidean")
+                # Get the farthest apart points
+                bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
+
+                # Print them
+                point1 = hullpoints[bestpair[0]]
+                point2 = hullpoints[bestpair[1]]
+                score = np.linalg.norm(point2 - point1)
+            elif metric == "area":
+                x = hullpoints[:, 0]
+                y = hullpoints[:, 1]
+                score = PolyArea(x, y)
+            distances.append(score)
+
+        largest_objects.append(np.argmax(np.array(distances)))
+    return np.array(largest_objects)
