@@ -789,7 +789,10 @@ class ClevrTexDataset(Dataset):
         # `msk` has shape [max_num_entries, height, width, channel]
         if self.split == "train":
             return img
-        return img, msk
+        num_objects = torch.max(msk) + 1
+        vis = torch.zeros(self.max_num_entries)
+        vis[range(num_objects)] = 1
+        return img, msk, vis
 
 
 class ClevrTexDataModule(pl.LightningDataModule):
