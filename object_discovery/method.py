@@ -316,7 +316,7 @@ class SlotAttentionMethod(pl.LightningModule):
             - When using "both," pixels detected using "spread_out"
             and the largest object detected using "concentrated" will be the
             background. The largest object detected using "concentrated" can be
-            the background.
+            the background detected by "spread_out."
         `background_metric` is used when `background_detection` is set to "both" or
             "concentrated" to determine which object is largest.
             - "area" will find the object with the largest area
@@ -326,9 +326,9 @@ class SlotAttentionMethod(pl.LightningModule):
         """
         assert background_detection in ["spread_out", "concentrated", "both"]
         if return_pil:
-            assert (
+            assert debug or (
                 len(image.shape) == 3 or image.shape[0] == 1
-            ), "Only one image can be passed when using `return_pil`"
+            ), "Only one image can be passed when using `return_pil` and `debug=False`."
 
         if do_transforms:
             if getattr(self, "predict_transforms", True):
@@ -370,11 +370,17 @@ class SlotAttentionMethod(pl.LightningModule):
                     objects, metric=background_metric
                 )
                 # `largest_object_idx` has shape [batch_size]
-                largest_object = objects[:, largest_object_idx]
+                largest_object = objects[
+                    range(len(largest_object_idx)), largest_object_idx
+                ]
                 # `largest_object` has shape [batch_size, num_objects=1, height, width]
                 largest_object = largest_object.squeeze(1).to(torch.bool)
 
-                segmentation_background = segmentation.clone()
+                segmentation_background = (
+                    segmentation_thresholded.clone()
+                    if background_detection == "both"
+                    else segmentation.clone()
+                )
                 # Set the largest object to be index 0, the background.
                 segmentation_background[largest_object] = 0
                 # Recompute the colors now that `largest_object` is the background.
