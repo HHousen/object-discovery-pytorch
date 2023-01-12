@@ -149,6 +149,7 @@ class RAVENSRobotDataset(Dataset):
         self.max_n_objects = max_n_objects
         self.split = split
         self.only_orientation = only_orientation
+        self.max_num_entries = 12
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
         assert self.split == "train" or self.split == "test"
 
@@ -178,7 +179,10 @@ class RAVENSRobotDataset(Dataset):
             return self.ravens_transforms(img)
         else:
             mask = self.data["segm"][index_to_load]
-            return self.ravens_transforms(img), self.mask_transforms(mask)
+            num_objects = np.max(mask) + 1
+            vis = torch.zeros(self.max_num_entries)
+            vis[range(num_objects)] = 1
+            return self.ravens_transforms(img), self.mask_transforms(mask), vis
 
     def __len__(self):
         return len(self.indices if self.max_n_objects else self.data["color"])
