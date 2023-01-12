@@ -403,7 +403,7 @@ class SlotAttentionMethod(pl.LightningModule):
                 )
                 to_return = images
                 if return_pil:
-                    to_return = transforms.functional.to_pil_image(to_return).squeeze()
+                    to_return = transforms.functional.to_pil_image(to_return.squeeze())
                 return to_return
             else:
                 to_return = segmentation_background
