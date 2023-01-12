@@ -62,7 +62,7 @@ slate_params = Namespace(
 )
 
 gnm_params = Namespace(
-    std=0.2,  # 0.2 on CLEVR, 0.5 on ClevrTex
+    std=0.5,  # 0.4 on CLEVR, 0.5 on ClevrTex
     z_what_dim=64,
     z_bg_dim=10,
     lr_main=1e-4,
