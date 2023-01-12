@@ -325,7 +325,6 @@ def get_largest_objects(objects, metric="area"):
                 # Get the farthest apart points
                 bestpair = np.unravel_index(hdist.argmax(), hdist.shape)
 
-                # Print them
                 point1 = hullpoints[bestpair[0]]
                 point2 = hullpoints[bestpair[1]]
                 score = np.linalg.norm(point2 - point1)
