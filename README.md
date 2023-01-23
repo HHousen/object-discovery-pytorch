@@ -8,7 +8,7 @@
 
 The initial code for this repo was forked from [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention).
 
-![Outputs of our slot attention model. This image demonstrates the models ability to divide objects (or parts of objects) into slots.](./slot_attention_results.png)
+![Visualization of a slot attention model trained on CLEVR6. This image demonstrates the model's ability to divide objects into slots.](./media/sa_clevr6_example.png)
 
 ## Setup
 
@@ -55,13 +55,33 @@ Select a dataset by changing the `dataset` parameter in [object_discovery/params
     - The dataset contains 85,002 images split 70,002 train and 15K validation/test.
 5. Sketchy: Download and process by following directions in [applied-ai-lab/genesis](https://github.com/applied-ai-lab/genesis#sketchy) / [Download Our Processed Version](https://drive.google.com/uc?export=download&id=1VM2-8R9zuVnbre1jb9jzz6amO0T6dQVX)
     - Dataset details are in the paper [Scaling data-driven robotics with reward sketching and batch reinforcement learning](https://arxiv.org/abs/1909.12200).
-
+6. ClevrTex: Download by executing [download_clevrtex.sh](./data_scripts/download_clevrtex.sh). Our dataloader needs to index the entire dataset before training can begin. This can take around 2 hours. Thus, it is recommended to download our pre-made index from [this Google Drive folder](https://drive.google.com/drive/folders/1qvkR6tHwGMZ4oyiEubokXioODqZAmRob) and put it in `./data/cache/`.
 
 ### Logging
 
 To log outputs to [wandb](https://wandb.ai/home), run `wandb login YOUR_API_KEY` and set `is_logging_enabled=True` in `SlotAttentionParams`.
 
 If you use a dataset with ground-truth segmentation masks, then the Adjusted Rand Index (ARI), a clustering similarity score, will be logged for each validation loop. We convert the implementation from [deepmind/multi_object_datasets](https://github.com/deepmind/multi_object_datasets) to PyTorch in [object_discovery/segmentation_metrics.py](object_discovery/segmentation_metrics.py).
+
+## More Visualizations
+
+Slot Attention CLEVR10 | Slot Attention Sketchy
+:-----------------------:|:--------------------:
+![](./media/sa_clevr10_with_masks.png) | ![](./media/sa_sketchy_with_masks.png)
+
+Visualizations (above) for a model trained on CLEVR6 predicting on CLEVR10 (with no increase in number of slots) and a model trained and predicting on Sketchy. The order from left to right of the images is original, reconstruction, raw predicted segmentation mask, processed segmentation mask, and then the slots.
+
+Slot Attention ClevrTex6 | GNM ClevrTex6
+:-----------------------:|:--------------------:
+![](./media/sa_clevrtex6.png) | ![](./media/gnm_clevrtex6.png)
+
+The Slot Attention visualization image order is the same as in the above visualizations. For GNM, the order is original, reconstruction, ground truth segmentation mask, prediction segmentation mask (repeated 4 times).
+
+SLATE CLEVR6 | GNM CLEVR6
+:-----------------------:|:--------------------:
+![](./media/slate_clevr6.png) | ![](./media/gnm_clevr6.png)
+
+For SLATE, the image order is original, dVAE reconstruction, autoregressive reconstruction, and then the pixels each slot pays attention to.
 
 ## References
 
