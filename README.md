@@ -37,6 +37,7 @@ Code to load these models can be adapted from [predict.py](./predict.py).
 | GNM | CLEVR6 Masks | [Google Drive](https://drive.google.com/uc?id=12-og3vLFrELm-cSJfPRn3tqXGJrErFk1) |
 | Slot Attention | ClevrTex6 | [Google Drive](https://drive.google.com/uc?id=1Hh_wIkNMym_skm0yprmxb7v-VODuaHIk) |
 | GNM | ClevrTex6 | [Google Drive](https://drive.google.com/uc?id=1VTIMJe-xCH_9RdE4qX4mjAq6mK35hDiX) |
+| SLATE | CLEVR6 Masks | [Google Drive](https://drive.google.com/uc?id=13a9tyGQ4jeb3zwFo_hyM-auL9CQpvK31) |
 
 ## Usage
 
