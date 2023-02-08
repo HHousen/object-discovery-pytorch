@@ -860,3 +860,168 @@ class ClevrTexDataModule(pl.LightningDataModule):
             pin_memory=True,
             drop_last=True,
         )
+
+
+class BoxWorldDataset(Dataset):
+    def __init__(
+        self,
+        data_root: str,
+        boxworld_transforms: Callable,
+        mask_transforms: Callable,
+        max_n_objects: int = 10,
+        split: str = "train",
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.boxworld_transforms = boxworld_transforms
+        self.mask_transforms = mask_transforms
+        self.max_n_objects = max_n_objects
+        self.split = split
+        self.max_num_entries = 10
+        assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
+        assert self.split == "train" or self.split == "val" or self.split == "test"
+
+        self.data = h5py.File(self.data_root, "r")
+        self.indices = range(0, len(self.data["image"]))
+        if self.max_n_objects:
+            self.indices = np.argwhere(
+                self.data["num_objects"][()] <= self.max_n_objects
+            ).flatten()
+        if self.split == "train":
+            self.indices = self.indices[self.indices < 70_000]
+        elif self.split == "val":
+            self.indices = np.where((70_000 <= self.indices) & (self.indices < 85_000))
+        elif self.split == "test":
+            self.indices = self.indices[self.indices >= 85_000]
+        else:
+            print("Invalid dataset split")
+
+    def __getitem__(self, index: int):
+        index_to_load = self.indices[index]
+
+        img = self.data["image"][index_to_load]
+        if self.split == "train":
+            return self.boxworld_transforms(img)
+        else:
+            mask = self.data["segmentation_mask"][index_to_load]
+            num_objects = np.max(mask) + 1
+            vis = torch.zeros(self.max_num_entries)
+            vis[range(num_objects)] = 1
+            if self.split == "train":
+                return self.boxworld_transforms(img)
+            else:
+                return self.boxworld_transforms(img), self.mask_transforms(mask), vis
+
+    def __len__(self):
+        return len(self.indices)
+
+
+class BoxWorldDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        data_root: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        max_n_objects: int,
+        num_workers: int,
+        resolution: Tuple[int, int],
+        boxworld_transforms: Optional[Callable] = None,
+        mask_transforms: Optional[Callable] = None,
+        alternative_crop: bool = False,
+        neg_1_to_pos_1_scale: bool = True,
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.boxworld_transforms = boxworld_transforms
+        self.mask_transforms = mask_transforms
+        self.max_n_objects = max_n_objects
+        self.num_workers = num_workers
+        self.resolution = resolution
+        self.alternative_crop = alternative_crop
+        self.neg_1_to_pos_1_scale = neg_1_to_pos_1_scale
+        self.max_num_entries = 10
+
+        print(
+            f"INFO: limiting the dataset to only images with `max_n_objects` ({max_n_objects}) objects."
+        )
+
+        alt_crop_func = lambda img: img[:, 232:-10, 50:-50]
+        if not self.boxworld_transforms:
+            current_transforms = [
+                # image has shape (H x W x C)
+                transforms.ToTensor(),  # rescales to range [0.0, 1.0]
+                # image has shape (C x H x W)
+            ]
+            if self.neg_1_to_pos_1_scale:
+                current_transforms.append(
+                    transforms.Lambda(rescale)
+                )  # rescale between -1 and 1
+            current_transforms.append(
+                transforms.Resize(
+                    self.resolution, interpolation=transforms.InterpolationMode.NEAREST
+                ),
+            )
+            self.boxworld_transforms = transforms.Compose(current_transforms)
+
+        if not self.mask_transforms:
+
+            def mask_transforms(mask):
+                # `mask` has shape [height, width]
+                mask = torch.from_numpy(mask)
+                mask = mask.unsqueeze(0)
+                # `mask` has shape [channel, height, width]
+                transform_func = transforms.Compose(
+                    [
+                        transforms.Resize(
+                            self.resolution,
+                            interpolation=transforms.InterpolationMode.NEAREST,
+                        ),
+                    ]
+                )
+                mask = transform_func(mask)
+                mask = mask.permute([1, 2, 0])
+                # `mask` has shape [height, width, channel]
+                mask = F.one_hot(mask.to(torch.int64), self.max_num_entries)
+                # `mask` has shape [height, width, channel, max_num_entries]
+                mask = mask.permute([3, 0, 1, 2])
+                # `mask` has shape [max_num_entries, height, width, channel]
+                return mask
+
+            self.mask_transforms = mask_transforms
+
+        self.train_dataset = BoxWorldDataset(
+            data_root=self.data_root,
+            boxworld_transforms=self.boxworld_transforms,
+            mask_transforms=self.mask_transforms,
+            split="train",
+            max_n_objects=self.max_n_objects,
+        )
+        self.val_dataset = BoxWorldDataset(
+            data_root=self.data_root,
+            boxworld_transforms=self.boxworld_transforms,
+            mask_transforms=self.mask_transforms,
+            split="test",
+            max_n_objects=self.max_n_objects,
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.train_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            drop_last=True,
+        )

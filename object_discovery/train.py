@@ -8,6 +8,7 @@ from object_discovery.data import (
     RAVENSRobotDataModule,
     SketchyDataModule,
     ClevrTexDataModule,
+    BoxWorldDataModule,
 )
 from object_discovery.method import SlotAttentionMethod
 from object_discovery.slot_attention_model import SlotAttentionModel
@@ -96,6 +97,16 @@ def main(params=None):
             neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
             dataset_variant=params.clevrtex_dataset_variant,
             max_n_objects=params.num_slots - 1,
+        )
+    elif params.dataset == "boxworld":
+        datamodule = BoxWorldDataModule(
+            data_root=params.data_root,
+            max_n_objects=params.num_slots - 1,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            num_workers=params.num_workers,
+            resolution=params.resolution,
+            neg_1_to_pos_1_scale=params.neg_1_to_pos_1_scale,
         )
 
     print(
