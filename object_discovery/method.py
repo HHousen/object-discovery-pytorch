@@ -101,15 +101,15 @@ class SlotAttentionMethod(pl.LightningModule):
             recon_combined, recons, masks, slots = self.model.forward(batch)
             # `masks` has shape [batch_size, num_entries, channels, height, width].
             threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
-            segmentation, segmentation_thresholded = sa_segment(masks, threshold)
+            _, _, cmap_segmentation, cmap_segmentation_thresholded = sa_segment(masks, threshold)
 
             # combine images in a nice way so we can display all outputs in one grid, output rescaled to be between 0 and 1
             out = torch.cat(
                 [
                     to_rgb_from_tensor(batch.unsqueeze(1)),  # original images
                     to_rgb_from_tensor(recon_combined.unsqueeze(1)),  # reconstructions
-                    segmentation.unsqueeze(1),
-                    segmentation_thresholded.unsqueeze(1),
+                    cmap_segmentation.unsqueeze(1),
+                    cmap_segmentation_thresholded.unsqueeze(1),
                     to_rgb_from_tensor(recons * masks + (1 - masks)),  # each slot
                 ],
                 dim=1,
