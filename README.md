@@ -4,7 +4,7 @@
 
 [![GitHub license](https://img.shields.io/github/license/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/slot-attention-pytorch.svg)](https://github.com/HHousen/slot-attention-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/slot-attention-pytorch.svg)](https://GitHub.com/HHousen/slot-attention-pytorch/pull/)
 
-**This repo is in active development. Expect frequent breaking changes.**
+**This repo is in active development. Expect some breaking changes.**
 
 The initial code for this repo was forked from [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention).
 
@@ -26,11 +26,26 @@ The initial code for this repo was forked from [untitled-ai/slot_attention](http
 4. Modify the hyperparameters in [object_discovery/params.py](object_discovery/params.py) to fit your needs. Make sure to change `data_root` to the location of your dataset.
 5. Train a model: `python -m slot_attention.train`.
 
+## Pre-trained Models
+
+Code to load these models can be adapted from [predict.py](./predict.py).
+
+| Model | Dataset | Download |
+|---|---|---|
+| Slot Attention | CLEVR6 Masks | [Google Drive](https://drive.google.com/uc?id=1cON-ULNGGDdx1ApmIoGdF2bD9oXVwUXe) |
+| Slot Attention | Sketchy | [Google Drive](https://drive.google.com/uc?id=1tCEMbVE2ByDXsncZ6Htkzzw1FKcIvcCr) |
+| GNM | CLEVR6 Masks | [Google Drive](https://drive.google.com/uc?id=12-og3vLFrELm-cSJfPRn3tqXGJrErFk1) |
+| Slot Attention | ClevrTex6 | [Google Drive](https://drive.google.com/uc?id=1Hh_wIkNMym_skm0yprmxb7v-VODuaHIk) |
+| GNM | ClevrTex6 | [Google Drive](https://drive.google.com/uc?id=1VTIMJe-xCH_9RdE4qX4mjAq6mK35hDiX) |
+| SLATE | CLEVR6 Masks | [Google Drive](https://drive.google.com/uc?id=13a9tyGQ4jeb3zwFo_hyM-auL9CQpvK31) |
+
 ## Usage
 
 Train a model by running `python -m slot_attention.train`.
 
 Hyperparameters can be changed in [object_discovery/params.py](object_discovery/params.py). `training_params` has global parameters that apply to all model types. These parameters can be overridden if the same key is present in `slot_attention_params` or `slate_params`. Change the global parameter `model_type` to `sa` to use Slot Attention (`SlotAttentionModel` in slot_attention_model.py) or `slate` to use SLATE (`SLATE` in slate_model.py). This will determine which model's set of parameters will be merged with `training_params`.
+
+Perform inference by modifying and running the [predict.py](./predict.py) script.
 
 ### Models
 
