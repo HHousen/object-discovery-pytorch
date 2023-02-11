@@ -63,7 +63,7 @@ Select a dataset by changing the `dataset` parameter in [object_discovery/params
 2. [CLEVR (with masks)](https://github.com/deepmind/multi_object_datasets#clevr-with-masks): [Original TFRecords Download](https://console.cloud.google.com/storage/browser/multi-object-datasets/clevr_with_masks) / [Our HDF5 PyTorch Version](https://drive.google.com/uc?export=download&id=15FhXv-1x8T68ZFohOLyohyZgpGfMKmEO).
     - This dataset is a regenerated version of CLEVR but with ground-truth segmentation masks. This enables the training script to calculate Adjusted Rand Index (ARI) during validation runs.
     - The dataset contains 100,000 images with a resolution of 240x320 pixels. The dataloader splits them 70K train, 15K validation, 15k test. Test images are not used by the [object_discovery/train.py](object_discovery/train.py) script.
-    - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the `data_scripts/preprocess_clevr_with_masks.py` script, which takes approximately 2 hours to execute depending on your machine.
+    - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the [data_scripts/preprocess_clevr_with_masks.py](./data_scripts/preprocess_clevr_with_masks.py) script, which takes approximately 2 hours to execute depending on your machine.
 3. [3D Shapes](https://github.com/deepmind/3d-shapes): [Official Google Cloud Bucket](https://console.cloud.google.com/storage/browser/3d-shapes)
 4. RAVENS Robot Data: [Official Train](https://drive.google.com/uc?export=download&id=1JxNgM2ubU4zJU_GjnoIOtqFKd-Mg_kzh) & [Official Test](https://drive.google.com/uc?export=download&id=1Zq77Ox5GiW3LZlBdVGgfrDuegcyZtzdW)
     - We generated a dataset similar in structure to CLEVR (with masks) but of robotic images using [RAVENS](https://github.com/google-research/ravens). Our modified version of RAVENS used to generate the dataset is [HHousen/ravens](https://github.com/HHousen/ravens).
@@ -71,6 +71,9 @@ Select a dataset by changing the `dataset` parameter in [object_discovery/params
 5. Sketchy: Download and process by following directions in [applied-ai-lab/genesis](https://github.com/applied-ai-lab/genesis#sketchy) / [Download Our Processed Version](https://drive.google.com/uc?export=download&id=1VM2-8R9zuVnbre1jb9jzz6amO0T6dQVX)
     - Dataset details are in the paper [Scaling data-driven robotics with reward sketching and batch reinforcement learning](https://arxiv.org/abs/1909.12200).
 6. ClevrTex: Download by executing [download_clevrtex.sh](./data_scripts/download_clevrtex.sh). Our dataloader needs to index the entire dataset before training can begin. This can take around 2 hours. Thus, it is recommended to download our pre-made index from [this Google Drive folder](https://drive.google.com/drive/folders/1qvkR6tHwGMZ4oyiEubokXioODqZAmRob) and put it in `./data/cache/`.
+7. [Tetrominoes](https://github.com/deepmind/multi_object_datasets#tetrominoes): [Original TFRecords Download](https://console.cloud.google.com/storage/browser/multi-object-datasets/tetrominoes) / [Our HDF5 PyTorch Version](https://drive.google.com/uc?export=download&id=14eZKOsYLBDx_JuJlE7ZvQBTbESSc0Afh).
+    - There are 1,000,000 samples in the dataset. However, following [the Slot Attention paper](https://arxiv.org/abs/2006.15055), we only use the first 60K samples for training.
+    - We convert the original TFRecords dataset to HDF5 for easy use with PyTorch. This was done using the [data_scripts/preprocess_tetrominoes.py](./data_scripts/preprocess_tetrominoes.py) script, which takes approximately 2 hours to execute depending on your machine.
 
 ### Logging
 
