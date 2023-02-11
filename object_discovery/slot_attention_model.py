@@ -145,6 +145,7 @@ class SlotAttentionModel(nn.Module):
         mlp_hidden_size: int = 128,
         hidden_dims: Tuple[int, ...] = (64, 64, 64, 64),
         decoder_resolution: Tuple[int, int] = (8, 8),
+        use_separation_loss=False,
     ):
         super().__init__()
         self.supports_masks = True
@@ -159,6 +160,7 @@ class SlotAttentionModel(nn.Module):
         self.hidden_dims = hidden_dims
         self.decoder_resolution = decoder_resolution
         self.out_features = self.hidden_dims[-1]
+        self.use_separation_loss = use_separation_loss
 
         modules = []
         channels = self.in_channels
@@ -291,9 +293,21 @@ class SlotAttentionModel(nn.Module):
         recon_combined = torch.sum(recons * masks, dim=1)
         return recon_combined, recons, masks, slots
 
-    def loss_function(self, input, global_step=None):
+    def loss_function(self, input, separation_tau=None, global_step=None):
         recon_combined, recons, masks, slots = self.forward(input)
-        loss = F.mse_loss(recon_combined, input)
+        # `masks` has shape [batch_size, num_entries, channels, height, width]
+        mse_loss = F.mse_loss(recon_combined, input)
+        if self.use_separation_loss:
+            separation_loss = 1 - torch.mean(torch.max(masks, dim=1).values.float())
+            loss = mse_loss + (separation_loss * separation_tau)
+            return {
+                "loss": loss,
+                "mse_loss": mse_loss,
+                "separation_loss": separation_loss,
+                "separation_tau": torch.tensor(separation_tau),
+            }, masks
+        else:
+            loss = mse_loss
         return {
             "loss": loss,
         }, masks

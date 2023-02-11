@@ -57,7 +57,16 @@ class SlotAttentionMethod(pl.LightningModule):
             )
             loss = self.model.loss_function(batch, self.tau, self.params.hard)
         elif self.params.model_type == "sa":
-            loss, mask = self.model.loss_function(batch)
+            separation_tau = None
+            if self.params.use_separation_loss:
+                separation_tau = 1 - cosine_anneal(
+                    self.trainer.global_step,
+                    1,
+                    0,
+                    self.params.separation_tau_start,
+                    self.params.separation_tau_end,
+                )
+            loss, mask = self.model.loss_function(batch, separation_tau=separation_tau)
         elif self.params.model_type == "gnm":
             output = self.model.loss_function(batch, self.trainer.global_step)
             loss = {
@@ -101,7 +110,9 @@ class SlotAttentionMethod(pl.LightningModule):
             recon_combined, recons, masks, slots = self.model.forward(batch)
             # `masks` has shape [batch_size, num_entries, channels, height, width].
             threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
-            _, _, cmap_segmentation, cmap_segmentation_thresholded = sa_segment(masks, threshold)
+            _, _, cmap_segmentation, cmap_segmentation_thresholded = sa_segment(
+                masks, threshold
+            )
 
             # combine images in a nice way so we can display all outputs in one grid, output rescaled to be between 0 and 1
             out = torch.cat(
@@ -172,7 +183,7 @@ class SlotAttentionMethod(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         logs = {
-            "validation/" + key: torch.stack([x[key] for x in outputs]).mean()
+            "validation/" + key: torch.stack([x[key] for x in outputs]).float().mean()
             for key in outputs[0].keys()
         }
         self.log_dict(logs, sync_dist=True)

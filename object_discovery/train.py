@@ -120,6 +120,7 @@ def main(params=None):
             num_slots=params.num_slots,
             num_iterations=params.num_iterations,
             slot_size=params.slot_size,
+            use_separation_loss=params.use_separation_loss,
         )
     elif params.model_type == "slate":
         model = SLATE(
