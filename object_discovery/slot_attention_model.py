@@ -303,7 +303,6 @@ class SlotAttentionModel(nn.Module):
             elif self.use_separation_loss == "entropy":
                 separation_loss = torch.mean(torch.special.entr(masks).sum(dim=1))
 
-            separation_tau = 1
             loss = mse_loss + (separation_loss * separation_tau)
             return {
                 "loss": loss,
