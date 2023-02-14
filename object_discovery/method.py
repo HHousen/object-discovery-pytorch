@@ -59,13 +59,16 @@ class SlotAttentionMethod(pl.LightningModule):
         elif self.params.model_type == "sa":
             separation_tau = None
             if self.params.use_separation_loss:
-                separation_tau = 1 - cosine_anneal(
-                    self.trainer.global_step,
-                    1,
-                    0,
-                    self.params.separation_tau_start,
-                    self.params.separation_tau_end,
-                )
+                if self.params.separation_tau:
+                    separation_tau = self.params.separation_tau
+                else:
+                    separation_tau = self.params.separation_tau_max_val - cosine_anneal(
+                        self.trainer.global_step,
+                        self.params.separation_tau_max_val,
+                        0,
+                        self.params.separation_tau_start,
+                        self.params.separation_tau_end,
+                    )
             loss, mask = self.model.loss_function(batch, separation_tau=separation_tau)
         elif self.params.model_type == "gnm":
             output = self.model.loss_function(batch, self.trainer.global_step)

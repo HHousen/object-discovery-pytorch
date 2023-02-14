@@ -298,7 +298,12 @@ class SlotAttentionModel(nn.Module):
         # `masks` has shape [batch_size, num_entries, channels, height, width]
         mse_loss = F.mse_loss(recon_combined, input)
         if self.use_separation_loss:
-            separation_loss = 1 - torch.mean(torch.max(masks, dim=1).values.float())
+            if self.use_separation_loss == "max":
+                separation_loss = 1 - torch.mean(torch.max(masks, dim=1).values.float())
+            elif self.use_separation_loss == "entropy":
+                separation_loss = torch.mean(torch.special.entr(masks).sum(dim=1))
+
+            separation_tau = 1
             loss = mse_loss + (separation_loss * separation_tau)
             return {
                 "loss": loss,
