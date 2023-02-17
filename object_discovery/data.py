@@ -885,7 +885,7 @@ class BoxWorldDataset(Dataset):
         self.indices = range(0, len(self.data["image"]))
         if self.max_n_objects:
             self.indices = np.argwhere(
-                self.data["num_objects"][()] <= self.max_n_objects
+                self.data["num_objects"][()].flatten() <= self.max_n_objects
             ).flatten()
         if self.split == "train":
             self.indices = self.indices[self.indices < 70_000]
