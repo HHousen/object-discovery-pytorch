@@ -877,7 +877,7 @@ class BoxWorldDataset(Dataset):
         self.mask_transforms = mask_transforms
         self.max_n_objects = max_n_objects
         self.split = split
-        self.max_num_entries = 10
+        self.max_num_entries = 19
         assert os.path.exists(self.data_root), f"Path {self.data_root} does not exist"
         assert self.split == "train" or self.split == "val" or self.split == "test"
 
@@ -888,11 +888,15 @@ class BoxWorldDataset(Dataset):
                 self.data["num_objects"][()].flatten() <= self.max_n_objects
             ).flatten()
         if self.split == "train":
-            self.indices = self.indices[self.indices < 70_000]
+            self.indices = self.indices[self.indices < 200_000]
         elif self.split == "val":
-            self.indices = np.where((70_000 <= self.indices) & (self.indices < 85_000))
+            self.indices = np.where(
+                (200_000 <= self.indices) & (self.indices < 215_000)
+            )
         elif self.split == "test":
-            self.indices = self.indices[self.indices >= 85_000]
+            self.indices = np.where(
+                (215_000 <= self.indices) & (self.indices < 230_000)
+            )
         else:
             print("Invalid dataset split")
 
