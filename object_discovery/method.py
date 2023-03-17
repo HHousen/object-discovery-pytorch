@@ -316,6 +316,7 @@ class SlotAttentionMethod(pl.LightningModule):
         do_transforms=False,
         debug=False,
         return_pil=False,
+        return_slots=False,
         background_detection="spread_out",
         background_metric="area",
     ):
@@ -336,6 +337,8 @@ class SlotAttentionMethod(pl.LightningModule):
             - "area" will find the object with the largest area
             - "distance" will find the object with the greatest distance between
                 two points in that object.
+        `return_slots` returns only the Slot Attention slots if using Slot
+            Attention.
 
         """
         assert background_detection in ["spread_out", "concentrated", "both"]
@@ -361,6 +364,8 @@ class SlotAttentionMethod(pl.LightningModule):
 
         if self.params.model_type == "sa":
             recon_combined, recons, masks, slots = self.forward(image)
+            if return_slots:
+                return slots
             threshold = getattr(self.params, "sa_segmentation_threshold", 0.5)
             (
                 segmentation,

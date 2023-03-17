@@ -26,37 +26,14 @@ def load_model(ckpt_path):
     return model
 
 
-ckpt_path = "sketchy_sa-epoch=59-step=316440-3nofluv3.ckpt"
+print("Loading model...")
+ckpt_path = "epoch=209-step=299460.ckpt"
 model = load_model(ckpt_path)
 
-transformed_images = []
-for image_path in glob("data/sketchy_sample/*.png"):
-    image = Image.open(image_path)
-    image = image.convert("RGB")
-    transformed_images.append(transforms.functional.to_tensor(image))
+t = transforms.ToTensor()
 
-images = model.predict(
-    torch.stack(transformed_images),
-    do_transforms=True,
-    debug=True,
-    return_pil=True,
-    background_detection="both",
-)
-
-plt.imshow(images, interpolation="nearest")
-plt.show()
-
-ckpt_path = "clevr6_masks-epoch=673-step=275666-r4nbi6n7.ckpt"
-model = load_model(ckpt_path)
-
-t = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Lambda(slightly_off_center_crop),
-    ]
-)
-
-with h5py.File("/media/Main/Downloads/clevr_with_masks.h5", "r") as f:
+print("Loading images...")
+with h5py.File("data/box_world_dataset.h5", "r") as f:
     images = f["image"][0:8]
 
 transformed_images = []
@@ -64,6 +41,7 @@ for image in images:
     transformed_images.append(t(image))
 images = torch.stack(transformed_images)
 
+print("Predicting...")
 images = model.predict(
     images,
     do_transforms=True,
@@ -71,6 +49,59 @@ images = model.predict(
     return_pil=True,
     background_detection="both",
 )
+slots = model.predict(images, do_transforms=True, return_slots=True)
+slots = slots.squeeze()
+# `slots` has shape (num_slots, num_features)
 
-plt.imshow(images, interpolation="nearest")
-plt.show()
+print("Saving...")
+images.save("output.png")
+
+
+# ckpt_path = "sketchy_sa-epoch=59-step=316440-3nofluv3.ckpt"
+# model = load_model(ckpt_path)
+
+# transformed_images = []
+# for image_path in glob("data/sketchy_sample/*.png"):
+#     image = Image.open(image_path)
+#     image = image.convert("RGB")
+#     transformed_images.append(transforms.functional.to_tensor(image))
+
+# images = model.predict(
+#     torch.stack(transformed_images),
+#     do_transforms=True,
+#     debug=True,
+#     return_pil=True,
+#     background_detection="both",
+# )
+
+# plt.imshow(images, interpolation="nearest")
+# plt.show()
+
+# ckpt_path = "clevr6_masks-epoch=673-step=275666-r4nbi6n7.ckpt"
+# model = load_model(ckpt_path)
+
+# t = transforms.Compose(
+#     [
+#         transforms.ToTensor(),
+#         transforms.Lambda(slightly_off_center_crop),
+#     ]
+# )
+
+# with h5py.File("/media/Main/Downloads/clevr_with_masks.h5", "r") as f:
+#     images = f["image"][0:8]
+
+# transformed_images = []
+# for image in images:
+#     transformed_images.append(t(image))
+# images = torch.stack(transformed_images)
+
+# images = model.predict(
+#     images,
+#     do_transforms=True,
+#     debug=True,
+#     return_pil=True,
+#     background_detection="both",
+# )
+
+# plt.imshow(images, interpolation="nearest")
+# plt.show()
