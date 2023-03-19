@@ -69,8 +69,20 @@ class SlotAttentionMethod(pl.LightningModule):
                         self.params.separation_tau_start,
                         self.params.separation_tau_end,
                     )
+            area_tau = None
+            if self.params.use_area_loss:
+                if self.params.area_tau:
+                    area_tau = self.params.area_tau
+                else:
+                    area_tau = self.params.area_tau_max_val - cosine_anneal(
+                        self.trainer.global_step,
+                        self.params.area_tau_max_val,
+                        0,
+                        self.params.area_tau_start,
+                        self.params.area_tau_end,
+                    )
             loss, mask = self.model.loss_function(
-                batch, separation_tau=separation_tau, area_tau=self.params.area_tau
+                batch, separation_tau=separation_tau, area_tau=area_tau
             )
         elif self.params.model_type == "gnm":
             output = self.model.loss_function(batch, self.trainer.global_step)
@@ -289,10 +301,7 @@ class SlotAttentionMethod(pl.LightningModule):
                 return (
                     [optimizer],
                     [
-                        {
-                            "scheduler": scheduler,
-                            "interval": "step",
-                        },
+                        {"scheduler": scheduler, "interval": "step",},
                         {
                             "scheduler": reduce_on_plateau,
                             "interval": "epoch",
@@ -303,12 +312,7 @@ class SlotAttentionMethod(pl.LightningModule):
 
             return (
                 [optimizer],
-                [
-                    {
-                        "scheduler": scheduler,
-                        "interval": "step",
-                    }
-                ],
+                [{"scheduler": scheduler, "interval": "step",}],
             )
         return optimizer
 

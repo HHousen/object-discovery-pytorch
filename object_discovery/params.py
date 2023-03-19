@@ -41,7 +41,10 @@ slot_attention_params = Namespace(
     separation_tau=None,
     boxworld_group_objects=True,
     use_area_loss=True,
-    area_tau=1,
+    area_tau_start=60_000,
+    area_tau_end=65_000,
+    area_tau_max_val=0.006,
+    area_tau=None,
 )
 
 slate_params = Namespace(

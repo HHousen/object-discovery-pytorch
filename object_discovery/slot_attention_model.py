@@ -325,6 +325,7 @@ class SlotAttentionModel(nn.Module):
             loss += area_loss * area_tau
             to_return["loss"] = loss
             to_return["area_loss"] = area_loss
+            to_return["area_tau"] = torch.tensor(area_tau)
         if self.use_separation_loss:
             if self.use_separation_loss == "max":
                 separation_loss = 1 - torch.mean(torch.max(masks, dim=1).values.float())
