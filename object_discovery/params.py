@@ -3,11 +3,11 @@ from argparse import Namespace
 
 training_params = Namespace(
     model_type="sa",
-    dataset="ravens",
-    num_slots=7,
+    dataset="boxworld",
+    num_slots=10,
     num_iterations=3,
     accumulate_grad_batches=1,
-    data_root="data/",
+    data_root="data/box_world_dataset.h5",
     accelerator="gpu",
     devices=-1,
     max_steps=-1,
@@ -35,10 +35,13 @@ slot_attention_params = Namespace(
     warmup_steps_pct=0.02,
     decay_steps_pct=0.2,
     use_separation_loss="entropy",
-    separation_tau_start=20_000,
-    separation_tau_end=25_000,
-    separation_tau_max_val=0.4,
-    separation_tau=0.03,
+    separation_tau_start=60_000,
+    separation_tau_end=65_000,
+    separation_tau_max_val=0.003,
+    separation_tau=None,
+    boxworld_group_objects=True,
+    use_area_loss=True,
+    area_tau=1,
 )
 
 slate_params = Namespace(

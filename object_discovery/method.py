@@ -69,7 +69,9 @@ class SlotAttentionMethod(pl.LightningModule):
                         self.params.separation_tau_start,
                         self.params.separation_tau_end,
                     )
-            loss, mask = self.model.loss_function(batch, separation_tau=separation_tau)
+            loss, mask = self.model.loss_function(
+                batch, separation_tau=separation_tau, area_tau=self.params.area_tau
+            )
         elif self.params.model_type == "gnm":
             output = self.model.loss_function(batch, self.trainer.global_step)
             loss = {
@@ -354,7 +356,12 @@ class SlotAttentionMethod(pl.LightningModule):
                     current_transforms.append(transforms.ToTensor())
                 if self.params.model_type == "sa":
                     current_transforms.append(transforms.Lambda(rescale))
-                current_transforms.append(transforms.Resize(self.params.resolution))
+                current_transforms.append(
+                    transforms.Resize(
+                        self.params.resolution,
+                        interpolation=transforms.InterpolationMode.NEAREST,
+                    )
+                )
                 self.predict_transforms = transforms.Compose(current_transforms)
             image = self.predict_transforms(image)
 

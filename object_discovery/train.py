@@ -100,9 +100,12 @@ def main(params=None):
             max_n_objects=params.num_slots - 1,
         )
     elif params.dataset == "boxworld":
+        max_n_objects = params.num_slots - 1
         datamodule = BoxWorldDataModule(
             data_root=params.data_root,
-            max_n_objects=params.num_slots - 1,
+            max_n_objects=2 * max_n_objects
+            if params.boxworld_group_objects
+            else max_n_objects,
             train_batch_size=params.batch_size,
             val_batch_size=params.val_batch_size,
             num_workers=params.num_workers,
@@ -132,6 +135,7 @@ def main(params=None):
             num_iterations=params.num_iterations,
             slot_size=params.slot_size,
             use_separation_loss=params.use_separation_loss,
+            use_area_loss=params.use_area_loss,
         )
     elif params.model_type == "slate":
         model = SLATE(

@@ -146,6 +146,7 @@ class SlotAttentionModel(nn.Module):
         hidden_dims: Tuple[int, ...] = (64, 64, 64, 64),
         decoder_resolution: Tuple[int, int] = (8, 8),
         use_separation_loss=False,
+        use_area_loss=False,
     ):
         super().__init__()
         self.supports_masks = True
@@ -161,6 +162,7 @@ class SlotAttentionModel(nn.Module):
         self.decoder_resolution = decoder_resolution
         self.out_features = self.hidden_dims[-1]
         self.use_separation_loss = use_separation_loss
+        self.use_area_loss = use_area_loss
 
         modules = []
         channels = self.in_channels
@@ -293,10 +295,36 @@ class SlotAttentionModel(nn.Module):
         recon_combined = torch.sum(recons * masks, dim=1)
         return recon_combined, recons, masks, slots
 
-    def loss_function(self, input, separation_tau=None, global_step=None):
+    def loss_function(
+        self, input, separation_tau=None, area_tau=None, global_step=None
+    ):
         recon_combined, recons, masks, slots = self.forward(input)
         # `masks` has shape [batch_size, num_entries, channels, height, width]
         mse_loss = F.mse_loss(recon_combined, input)
+
+        loss = mse_loss
+        to_return = {"loss": loss}
+        if self.use_area_loss:
+            max_num_objects = self.num_slots - 1
+            width, height = masks.shape[-1], masks.shape[-2]
+            one_object_area = 9 * 9
+            background_size = width * height - max_num_objects * one_object_area
+            slot_area = torch.sum(masks.squeeze(), dim=(-1, -2))
+
+            batch_size, num_slots = slot_area.shape[0], slot_area.shape[1]
+            area_loss = 0
+            for batch_idx in range(batch_size):
+                for slot_idx in range(num_slots):
+                    area = slot_area[batch_idx, slot_idx]
+                    area_loss += min(
+                        (area - 2 * one_object_area) ** 2,
+                        max(background_size - area, 0) * (background_size - area),
+                    ) / (2 * one_object_area)**2
+            
+            area_loss /= batch_size * num_slots
+            loss += area_loss * area_tau
+            to_return["loss"] = loss
+            to_return["area_loss"] = area_loss
         if self.use_separation_loss:
             if self.use_separation_loss == "max":
                 separation_loss = 1 - torch.mean(torch.max(masks, dim=1).values.float())
@@ -304,18 +332,12 @@ class SlotAttentionModel(nn.Module):
                 entropy = torch.special.entr(masks + 1e-8)
                 separation_loss = torch.mean(entropy.sum(dim=1))
 
-            loss = mse_loss + (separation_loss * separation_tau)
-            return {
-                "loss": loss,
-                "mse_loss": mse_loss,
-                "separation_loss": separation_loss,
-                "separation_tau": torch.tensor(separation_tau),
-            }, masks
-        else:
-            loss = mse_loss
-        return {
-            "loss": loss,
-        }, masks
+            loss += separation_loss * separation_tau
+            to_return["loss"] = loss
+            to_return["mse_loss"] = mse_loss
+            to_return["separation_loss"] = separation_loss
+            to_return["separation_tau"] = torch.tensor(separation_tau)
+        return to_return, masks
 
 
 class SoftPositionEmbed(nn.Module):
