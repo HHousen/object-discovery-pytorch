@@ -1,5 +1,7 @@
 # Object Discovery PyTorch
 
+<img style="float:left;" src="small_logo.png">
+
 > This is an implementation of several unsupervised object discovery models (Slot Attention, SLATE, GNM) in PyTorch.
 
 [![GitHub license](https://img.shields.io/github/license/HHousen/object-discovery-pytorch.svg)](https://github.com/HHousen/object-discovery-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/object-discovery-pytorch.svg)](https://github.com/HHousen/object-discovery-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/object-discovery-pytorch.svg)](https://GitHub.com/HHousen/object-discovery-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/object-discovery-pytorch.svg)](https://GitHub.com/HHousen/object-discovery-pytorch/pull/)
