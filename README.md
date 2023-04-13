@@ -1,6 +1,6 @@
 # Object Discovery PyTorch
 
-<img style="float:left;" src="small_logo.png">
+<img align="left" src="small_logo.png" />
 
 > This is an implementation of several unsupervised object discovery models (Slot Attention, SLATE, GNM) in PyTorch.
 
