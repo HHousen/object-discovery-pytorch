@@ -6,8 +6,6 @@
 
 [![GitHub license](https://img.shields.io/github/license/HHousen/object-discovery-pytorch.svg)](https://github.com/HHousen/object-discovery-pytorch/blob/master/LICENSE) [![Github commits](https://img.shields.io/github/last-commit/HHousen/object-discovery-pytorch.svg)](https://github.com/HHousen/object-discovery-pytorch/commits/master) [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![GitHub issues](https://img.shields.io/github/issues/HHousen/object-discovery-pytorch.svg)](https://GitHub.com/HHousen/object-discovery-pytorch/issues/) [![GitHub pull-requests](https://img.shields.io/github/issues-pr/HHousen/object-discovery-pytorch.svg)](https://GitHub.com/HHousen/object-discovery-pytorch/pull/)
 
-**This repo is in active development. Expect some breaking changes.**
-
 The initial code for this repo was forked from [untitled-ai/slot_attention](https://github.com/untitled-ai/slot_attention).
 
 ![Visualization of a slot attention model trained on CLEVR6. This image demonstrates the model's ability to divide objects into slots.](./media/sa_clevr6_example.png)
